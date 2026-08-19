@@ -201,6 +201,13 @@ select option{background:#0d1a14}
    esto le gana en especificidad a la regla [hidden]{display:none} del
    navegador, y la pantalla queda visible aunque hidden=true. */
 #pantalla-login:not([hidden]){display:flex}
+/* Sin sesión no hay nada que navegar ni a quién escribirle. Antes esto lo
+   tapaba el fondo opaco del login; con la seda detrás quedaría a la vista,
+   pero esconderlo corresponde igual — el login no es una capa flotante
+   sobre la app, es lo único que hay hasta que alguien entra. */
+#pantalla-login:not([hidden]) ~ nav,
+#pantalla-login:not([hidden]) ~ .wa-tab,
+#pantalla-login:not([hidden]) ~ .wa-drawer{display:none}
 #pantalla-login::before{
   content:""; position:fixed; inset:-25%; z-index:-1;
   background:
@@ -243,6 +250,11 @@ select option{background:#0d1a14}
   a[href^="http"]::after{content:"";}
 }
 </style>
+<!-- Seda de la jornada: fondo WebGL que late con la ruta y se tiñe con el
+     faltante del cierre. Es la misma capa que en Caja Zeta, con la paleta y
+     los signos vitales de este producto. Para sacarla, basta con borrar esta
+     línea y assets/flujo.js — la app no depende de ella. -->
+<script type="module" src="assets/flujo.js"></script>
 </head>
 <body>
 

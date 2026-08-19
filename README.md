@@ -21,6 +21,8 @@ app/                    El aplicativo, sin build ni dependencias
 ├── index.html          El aplicativo — abre con doble clic. Login, roles y
 │                       todo el libro (catálogo, cartera, ventas, encargues,
 │                       zonas) son reales, contra server/api/
+├── assets/flujo.js     La seda de la jornada: fondo WebGL que late con la
+│                       ruta y se tiñe con el faltante del cierre
 └── core/               Motores puros, probados en Node (130/130): TOTP,
                         roles y su jerarquía, clave+sesión, auditoría,
                         usuarios, el libro de asientos, ventas, encargues
@@ -104,6 +106,27 @@ algo para mostrar. Con eso hecho:
   `DZ-BAI-01` si se evalúa la alternativa no oficial mientras tanto — con su advertencia.
 
 Para exportar a PDF: Cmd+P. Tiene hoja de impresión que invierte a fondo claro.
+
+## La seda de la jornada
+
+`app/assets/flujo.js` — el mismo fondo WebGL que Caja Zeta, con la paleta de acá y **otros
+signos vitales**. No es decoración: la corriente late con la ruta hecha, **el faltante del
+cierre tiñe la seda de coral**, las no-ventas tensan los pliegues, y si no hay servidor la
+escena se enfría. La resta que ordena todo el producto se ve antes de abrir ninguna
+pantalla.
+
+Cero dependencias, WebGL2 puro. Sin WebGL2 la capa no se activa y la app queda igual —
+**jamás puede romperla**. Respeta `prefers-reduced-motion` (un cuadro quieto), corre a 30
+fps, pausa con la pestaña oculta y duerme a los 2 minutos sin actividad: esto vive una
+jornada entera en el teléfono de un repartidor.
+
+Dos toggles abajo a la derecha, que recuerdan la elección: **flujo** (apagarla) y
+**vidrio** (una lámina esmerilada entre la seda y el contenido). A diferencia de Caja Zeta,
+acá **el vidrio viene puesto**: se trabaja en la calle, con sol, y una tabla de números
+sobre la seda a pleno se lee mal. En el login se saca solo — ahí dura cinco segundos y es
+la cara del producto. Para evaluar climas a ojo desde la consola:
+`FLUJO.estado({flujo:1.2, frac:.14, turb:.8, sync:1})`, y `FLUJO.estado(null)` vuelve a los
+datos reales.
 
 ## Convenciones
 
