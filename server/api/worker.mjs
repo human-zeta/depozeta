@@ -41,6 +41,11 @@ import {
    corresponda en vez de un `*` abierto a cualquiera. */
 const ORIGENES_PERMITIDOS = [
   'https://depozeta.hg-vl.com',
+  // Mientras GitHub Pages no termine de emitir el certificado del dominio
+  // propio (estado `authorization_created`), el sitio sólo sirve por HTTP y
+  // el navegador manda este Origin. Sacar de la lista cuando el candado
+  // esté puesto y «Enforce HTTPS» activado en la config de Pages.
+  'http://depozeta.hg-vl.com',
   'https://human-zeta.github.io',
   'null',   // abrir app/index.html con doble clic manda Origin: null —
             // aceptable acá porque la sesión viaja en el header
