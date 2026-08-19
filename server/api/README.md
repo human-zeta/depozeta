@@ -8,9 +8,9 @@ encargues, zonas a evitar. Ver
 [`DZ-MOD-01`](../../docs/tecnico/01-modelo-datos-dz-mod-01.md) para el
 modelo del libro.
 
-**Probado de punta a punta con `wrangler dev` (D1 local, sin cuenta de
-Cloudflare) — no desplegado a la nube real todavía.** Ver "Qué falta"
-más abajo.
+**Desplegado de verdad desde el 19 de agosto:**
+`https://depo-zeta-api.tukyquilme.workers.dev`. Probado de punta a punta
+primero con `wrangler dev` (D1 local), y contra esta URL real después.
 
 ## Requiere Node 22+
 
@@ -39,14 +39,26 @@ como archivo local, sin ningún dato en la nube.
 
 ## El primer ADMIN
 
+En local, con el `BOOTSTRAP_TOKEN` de `.dev.vars`:
+
 ```bash
 curl -X POST http://localhost:8787/api/bootstrap -H 'Content-Type: application/json' \
   -d '{"token":"el-de-.dev.vars","usuario":"vos","nombre":"Tu Nombre","clave":"una clave de verdad, doce caracteres o más"}'
 ```
 
+Contra la API real, con el `BOOTSTRAP_TOKEN` que quedó cargado como secret
+(`wrangler secret put BOOTSTRAP_TOKEN` — no está en este repo ni en ningún
+archivo, sólo en Cloudflare y en la conversación donde se generó):
+
+```bash
+curl -X POST https://depo-zeta-api.tukyquilme.workers.dev/api/bootstrap -H 'Content-Type: application/json' \
+  -d '{"token":"EL_TOKEN_REAL","usuario":"tu-usuario","nombre":"Tu Nombre","clave":"tu clave real, doce caracteres o más"}'
+```
+
 Sólo funciona una vez —si ya hay un usuario, se rechaza— y sólo con el
 `BOOTSTRAP_TOKEN` correcto, para que no alcance con adivinar la URL antes
-de que el dueño real la use.
+de que el dueño real la use. Para rotarlo: `wrangler secret put BOOTSTRAP_TOKEN`
+de nuevo (sólo tiene efecto mientras no haya usuarios todavía).
 
 ## Las rutas
 
@@ -98,25 +110,32 @@ otra cuenta con el mismo permiso.
 Todas menos `bootstrap`/`login`/`login/totp` piden
 `Authorization: Bearer <token>`.
 
-## Desplegar de verdad
-
-Esto todavía no se hizo — necesita la cuenta de Cloudflare del dueño del
-proyecto, que esta sesión no tiene:
+## Ya desplegado — cómo se hizo
 
 ```bash
-npx wrangler d1 create depo-zeta          # reemplazar database_id en wrangler.toml
+npx wrangler login                        # OAuth contra la cuenta real de Cloudflare
+npx wrangler d1 create depo-zeta          # id real → wrangler.toml (87cfd408-9ba0-4b96-9089-edae778c8829)
 npx wrangler d1 execute depo-zeta --remote --file=schema.sql
 npx wrangler secret put BOOTSTRAP_TOKEN
 npx wrangler deploy
 ```
 
+Cuenta: `tukyquilme@gmail.com`. Worker: `depo-zeta-api`, en la URL de
+`workers.dev` de arriba — todavía no tiene un dominio propio (`depozeta-api.hg-vl.com`
+o similar), ver «Qué falta».
+
+## CORS
+
+Ya no es `*` — `encabezadosCors()` en `worker.mjs` refleja el `Origin` sólo si está en
+`ORIGENES_PERMITIDOS` (hoy `depozeta.hg-vl.com` y `human-zeta.github.io`) o es
+`localhost` en cualquier puerto, para seguir desarrollando local. Si el front termina
+viviendo en otro origen, agregarlo a esa lista.
+
 ## Qué falta
 
-- **Desplegar a la nube real** — todo lo de arriba, hoy sólo corrido en
-  local.
-- **Acotar el CORS** (`Access-Control-Allow-Origin: *` en `worker.mjs`) al
-  dominio final una vez que exista — hoy está abierto porque el dominio
-  todavía no está decidido del todo.
+- **Dominio propio para la API** — hoy es la URL de `workers.dev`, funciona igual pero
+  no es lo que se planeó (`depozeta.hg-vl.com` para el front). Un dominio tipo
+  `depozeta-api.hg-vl.com` es un `route` más en `wrangler.toml`, no un cambio de código.
 - **Trabajar sin conexión.** Cada operación es una llamada HTTP en el
   momento — no hay cola local ni sincronización al recuperar señal. Ver
   la sección «Sincronización» de `DZ-MOD-01` para el porqué y qué cambiaría.
@@ -125,3 +144,6 @@ npx wrangler deploy
   juntos.
 - **Actualizar el costo de un producto ya existente** — hoy sólo se fija
   al dar de alta.
+- **El primer ADMIN real todavía no se creó** — hace falta correr
+  `/api/bootstrap` contra la URL real, con el token que quedó como
+  secret. Ver «El primer ADMIN» arriba.

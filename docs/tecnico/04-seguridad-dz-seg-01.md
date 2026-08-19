@@ -168,21 +168,25 @@ las dos necesarias:
   500), reinicio de TOTP, y desactivación cortando una sesión que ya
   estaba abierta.
 
-Lo que **no** se probó: contra una cuenta de Cloudflare real desplegada
-—esta sesión no tiene esas credenciales—. Ver "Qué falta" en
+Lo que esa noche **no** se probó: contra una cuenta de Cloudflare real
+desplegada. Se resolvió la noche siguiente — `server/api/` corre en vivo
+en `https://depo-zeta-api.tukyquilme.workers.dev` desde el 19 de agosto,
+con el mismo login de dos pasos verificado ahí, no sólo en local. Ver
 `server/api/README.md`.
 
 ---
 
 ## Lo que no está resuelto
 
-- **CORS abierto** (`*`) hasta que el dominio final esté decidido.
 - **Sin recuperación de clave.** Si alguien la pierde, hoy no hay flujo
   de reseteo — lo resuelve un ADMIN o DEPOSITO dándole de baja y de alta
   de nuevo. Un reseteo propio es trabajo de otra noche.
-- **Sin despliegue real.** Todo lo de este documento se probó con
-  `wrangler dev --local` — nada corrió todavía contra una cuenta de
-  Cloudflare de verdad.
+- **La API todavía no tiene dominio propio** — vive en la URL que asigna
+  `workers.dev`, no en algo como `depozeta-api.hg-vl.com`. Cosmético, no
+  funcional.
+- **El primer ADMIN real de producción todavía no lo creó el dueño del
+  proyecto** — el `BOOTSTRAP_TOKEN` quedó como secret en Cloudflare, listo
+  para que lo use él, no un dato de prueba.
 
 **Ya resuelto, no era cierto en la primera versión de este documento:**
 el resto del libro (`clientes`, `productos`, `asientos`, `ventas`,

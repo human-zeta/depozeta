@@ -69,10 +69,12 @@ Cuatro definiciones del 18 de agosto de 2026. Cada una borró trabajo.
 
 Doble clic en `app/index.html` — pero desde la noche del 19 de agosto la primera pantalla
 pide la URL de una API y un login real (clave + TOTP), porque el acceso ya no es un botón
-para cambiar de perfil: es una sesión de servidor. Para entrar hace falta `server/api/`
-corriendo — instrucciones en su [README](server/api/README.md) — y un usuario creado ahí
-(el primer ADMIN se crea una sola vez, con `/api/bootstrap`). Ver `DZ-SEG-01` para el
-diseño completo.
+para cambiar de perfil: es una sesión de servidor. Esa API ya está en vivo:
+`https://depo-zeta-api.tukyquilme.workers.dev` (Cloudflare real, no local) — hace falta
+crear el primer ADMIN una sola vez con `/api/bootstrap` antes de poder entrar, ver
+[server/api/README.md](server/api/README.md#el-primer-admin). Para seguir probando en
+la máquina en vez de contra la nube, `server/api/` también corre local con `wrangler dev`
+— mismas instrucciones. Ver `DZ-SEG-01` para el diseño completo.
 
 Una vez adentro, el catálogo y la cartera arrancan vacíos — hay que cargarlos desde
 **Precios → Agregar producto** y **Clientes → Agregar cliente** antes de que el resto tenga
@@ -122,11 +124,12 @@ Para exportar a PDF: Cmd+P. Tiene hoja de impresión que invierte a fondo claro.
   `DZ-MOD-01` para qué significa esto en la práctica y qué cambiaría si hiciera falta.
 - **Reporte consolidado de varios repartidores a la vez** — hoy cada vista de cierre o
   carga muestra a quien tiene la sesión abierta, no un tablero de todos juntos.
-- **Desplegar `server/api/` a una cuenta de Cloudflare real** — hoy sólo se probó en local
-  con `wrangler dev`. Ídem el webhook de WhatsApp: sin probar contra Meta real, ver
-  DZ-WSP-01. Ninguno de los dos está en la nube todavía.
-- La verificación de Meta Business, el alta del número y el despliegue real del Worker de
-  WhatsApp — los tres le tocan al dueño del proyecto, no se pueden completar por él.
+- **Un dominio propio para la API.** `server/api/` ya está desplegado y en vivo en
+  `https://depo-zeta-api.tukyquilme.workers.dev` (19 de agosto) — falta el paso cosmético
+  de un dominio propio tipo `depozeta-api.hg-vl.com`, si se quiere.
+- El webhook de WhatsApp sigue sin desplegar ni probar contra Meta real, ver DZ-WSP-01. La
+  verificación de Meta Business y el alta del número le tocan al dueño del proyecto, no se
+  pueden completar por él.
 
 ## Roles, acceso y libro operativo — reales desde el 19 de agosto
 

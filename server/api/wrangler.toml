@@ -11,6 +11,4 @@ compatibility_date = "2026-08-19"
 [[d1_databases]]
 binding = "DB"
 database_name = "depo-zeta"
-database_id = "local-dev"   # con `wrangler dev` (sin --remote) alcanza cualquier valor;
-                             # al desplegar de verdad, reemplazar por el id real de
-                             # `wrangler d1 create depo-zeta`
+database_id = "87cfd408-9ba0-4b96-9089-edae778c8829"   # D1 real, creada 19 ago 2026

@@ -35,15 +35,25 @@ import {
 
 /* ------------------------------- Utilidades -------------------------------- */
 
-const ENCABEZADOS_BASE = {
-  'Content-Type': 'application/json; charset=utf-8',
-  'Access-Control-Allow-Origin': '*',   // ver server/api/README.md — a acotar cuando haya dominio final
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-};
+/* Lista blanca de orígenes — el front todavía puede vivir en cualquiera de
+   estos tres lugares (GitHub Pages con o sin el dominio propio resuelto,
+   más el navegador local de desarrollo), así que se refleja el que
+   corresponda en vez de un `*` abierto a cualquiera. */
+const ORIGENES_PERMITIDOS = [
+  'https://depozeta.hg-vl.com',
+  'https://human-zeta.github.io',
+];
 
-function json(datos, estado = 200) {
-  return new Response(JSON.stringify(datos), { status: estado, headers: ENCABEZADOS_BASE });
+function encabezadosCors(req) {
+  const origin = req.headers.get('Origin') || '';
+  const permitido = ORIGENES_PERMITIDOS.includes(origin) || /^https?:\/\/localhost(:\d+)?$/.test(origin);
+  return {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Access-Control-Allow-Origin': permitido ? origin : ORIGENES_PERMITIDOS[0],
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    Vary: 'Origin',
+  };
 }
 
 /* Traduce el código de error del dominio (puesto por los motores) a HTTP.
@@ -57,12 +67,6 @@ const HTTP_POR_CODIGO = {
   STOCK_INSUFICIENTE: 409, TRANSICION_INVALIDA: 409, ENCARGUE_INCOMPLETO: 409,
   INTENTOS_EXCEDIDOS: 429,
 };
-
-function errorJson(e) {
-  const estado = HTTP_POR_CODIGO[e?.codigo] ?? 500;
-  if (estado === 500) console.error('error no mapeado:', e);
-  return json({ error: e?.codigo ?? 'ERROR_INTERNO', mensaje: e?.message ?? 'error interno' }, estado);
-}
 
 const ip = (req) => req.headers.get('CF-Connecting-IP') ?? null;
 const userAgent = (req) => req.headers.get('User-Agent') ?? null;
@@ -153,7 +157,15 @@ const perfilPublico = (u) => ({ id: u.id, usuario: u.usuario, nombre: u.nombre, 
 
 export default {
   async fetch(req, env) {
-    if (req.method === 'OPTIONS') return new Response(null, { headers: ENCABEZADOS_BASE });
+    const encabezados = encabezadosCors(req);
+    if (req.method === 'OPTIONS') return new Response(null, { headers: encabezados });
+
+    const json = (datos, estado = 200) => new Response(JSON.stringify(datos), { status: estado, headers: encabezados });
+    const errorJson = (e) => {
+      const estado = HTTP_POR_CODIGO[e?.codigo] ?? 500;
+      if (estado === 500) console.error('error no mapeado:', e);
+      return json({ error: e?.codigo ?? 'ERROR_INTERNO', mensaje: e?.message ?? 'error interno' }, estado);
+    };
 
     const url = new URL(req.url);
     const {
