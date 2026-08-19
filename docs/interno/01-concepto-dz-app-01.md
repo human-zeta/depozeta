@@ -167,13 +167,19 @@ durante una venta (un escaneo = una línea, como un lector de POS real).
 
 Dos límites reales, no cosméticos:
 
-- **No anda en Safari ni en iPhone.** `BarcodeDetector` todavía no tiene soporte nativo
-  ahí a esta fecha. Cae a carga manual con el mismo formulario, nunca a un callejón sin
-  salida — pero hay que saberlo antes de comprarles iPhones a los repartidores pensando en
-  esto.
+- **La cámara del navegador no sirve en iPhone.** `BarcodeDetector` nunca se implementó en
+  WebKit —o sea, en ningún navegador de iOS, ni siquiera Chrome, que ahí también es
+  WebKit— y Apple no anunció que lo vaya a hacer (verificado en agosto de 2026). **Pero
+  eso no deja al iPhone afuera:** iOS trae **«Escanear texto»** en su propio teclado
+  (Live Text, iOS 15+), que lee los dígitos impresos debajo de las barras y los escribe
+  en el campo. Es nativo del sistema, no hace falta instalar ni sumar nada. La app detecta
+  iOS y explica exactamente eso en el lugar donde se usa, en vez de mandar a tipear trece
+  dígitos a mano. Si algún día hiciera falta escaneo con cámara de verdad en iOS, la única
+  vía es una librería WebAssembly (tipo ZXing) — **rompe el principio de cero
+  dependencias del proyecto, así que es una decisión del dueño, no un default.**
 - **No anda abriendo el archivo con doble clic.** `getUserMedia` exige `http`/`https`; un
-  `file://` lo bloquea. Mientras el prototipo se abra así, el botón cae al mismo fallback
-  manual. Deja de ser un problema en cuanto haya un dominio real con HTTPS.
+  `file://` lo bloquea. Cae al mismo fallback manual. Ya no es un problema en el uso real:
+  la app se sirve desde su dominio.
 
 ## Encargue — la venta que se toma sin camioneta
 

@@ -1311,9 +1311,15 @@ function bloqueAgregarProducto(){
       producto y no se puede repetir. Escaneá para no tipear trece dígitos a mano.
     </p>
     <div class="fila">
-      <div class="campo" style="flex:1;min-width:150px"><label>Código / SKU</label><input id="in-prod-codigo" placeholder="Ej: 7790001234567"></div>
+      <div class="campo" style="flex:1;min-width:150px"><label>Código / SKU</label>
+        <input id="in-prod-codigo" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Ej: 7790001234567"></div>
       <div class="campo"><button class="btn" onclick="escanearCodigo(v=>{$('#in-prod-codigo').value=v})">📷 Escanear</button></div>
     </div>
+    ${esIOS() ? `<div class="nota" style="border-color:var(--verde);margin-top:-2px">
+      <b>En iPhone:</b> tocá el campo del código y usá <b>⧉ Escanear texto</b> del teclado,
+      apuntando a los números impresos debajo de las barras. Safari no tiene lector de
+      códigos propio, pero el de iOS anda igual de bien y no hay que instalar nada.
+    </div>` : ''}
     <div class="fila">
       <div class="campo" style="flex:1;min-width:150px"><label>Nombre</label><input id="in-prod-nombre" placeholder="Ej: Gaseosa cola 2,25 L"></div>
       <div class="campo" style="width:150px"><label>Rubro</label><input id="in-prod-rubro" placeholder="Ej: Bebidas" list="rubros-existentes">
@@ -1517,11 +1523,30 @@ function pararEscaneo(){
     escaneoActivo = null;
   }
 }
+const esIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent)
+  || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);   /* iPad se hace pasar por Mac */
+
 function panelFallbackEscaneo(motivo){
+  /* En iPhone el camino real no es la cámara del navegador —Safari no tiene
+     lector— sino «Escanear texto» del teclado del propio iOS, que lee los
+     dígitos impresos abajo del código de barras y los escribe en el campo.
+     Es nativo: no hace falta instalar nada ni sumar una librería. */
+  const ayudaIOS = esIOS() ? `
+    <div class="nota" style="border-color:var(--verde);margin-top:10px">
+      <b>En iPhone hay una forma que sí anda, sin instalar nada:</b>
+      tocá el campo de abajo, y cuando aparezca el teclado buscá el ícono
+      <b>⧉ Escanear texto</b> (arriba del teclado, o manteniendo apretado el campo).
+      Apuntá a <b>los números impresos debajo de las barras</b> — los escribe solos.
+    </div>` : '';
   panelMsg(`<div class="nota" style="border-color:var(--amarillo)">${motivo}</div>
-    <div class="campo" style="margin-top:10px"><label>Código a mano</label><input id="scan-manual" placeholder="Tipealo y confirmá"></div>
+    ${ayudaIOS}
+    <div class="campo" style="margin-top:10px"><label>Código</label>
+      <input id="scan-manual" autocomplete="off" autocapitalize="off" spellcheck="false"
+             placeholder="${esIOS() ? 'Escaneá con el teclado o tipealo' : 'Tipealo y confirmá'}"
+             onkeydown="if(event.key==='Enter')usarCodigoManual()"></div>
     <button class="btn pri" onclick="usarCodigoManual()">Usar este código</button>`,
     'Escanear código de barras');
+  setTimeout(()=>{ const i = $('#scan-manual'); if(i) i.focus(); }, 60);
 }
 function usarCodigoManual(){
   const v = ($('#scan-manual')||{}).value;
@@ -1538,7 +1563,9 @@ function escanearCodigo(cb){
     return;
   }
   if(!('BarcodeDetector' in window)){
-    panelFallbackEscaneo('Este navegador no tiene lector nativo de códigos de barra — Safari e iPhone todavía no lo soportan a esta fecha. Andá bien en Chrome/Android. Mientras tanto, escribilo a mano.');
+    panelFallbackEscaneo(esIOS()
+      ? 'Safari no tiene lector de códigos de barra —Apple nunca lo agregó, y no está anunciado—, así que la cámara del navegador no sirve para esto en iPhone.'
+      : 'Este navegador no tiene lector nativo de códigos de barra (sí lo tiene Chrome en Android). Escribí el código a mano.');
     return;
   }
   panelMsg('<div style="font-size:13px;color:var(--tenue)">Pidiendo permiso de cámara…</div>','Escanear código de barras');

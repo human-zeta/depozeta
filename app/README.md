@@ -89,9 +89,16 @@ el mismo callback que hubiera completado un escaneo real. **El escaneo con cáma
 se pudo probar acá** —hace falta un dispositivo con cámara de verdad— así que esa parte
 queda validada por lectura de código, no por prueba en vivo.
 
-No anda en Safari/iPhone (`BarcodeDetector` sin soporte nativo) ni abriendo el archivo con
-doble clic (`getUserMedia` exige http/https). Los dos casos caen al mismo formulario
-manual, nunca a un error sin salida.
+La cámara del navegador no sirve en iPhone (`BarcodeDetector` no existe en WebKit y Apple
+no lo anunció) ni abriendo el archivo con doble clic (`getUserMedia` exige http/https).
+Los dos casos caen al mismo formulario manual, nunca a un error sin salida.
+
+**En iOS el camino que sí funciona es «Escanear texto» del teclado del sistema** (Live
+Text): lee los dígitos impresos debajo de las barras y los escribe en el campo, sin
+instalar nada ni sumar librerías. `esIOS()` detecta el dispositivo y `panelFallbackEscaneo()`
+—más el bloque de alta de producto— lo explican ahí mismo, con el input listo y enfocado.
+Verificado simulando el user-agent de iPhone y quitando `BarcodeDetector`: aparece la ayuda
+correcta y el camino manual completa el mismo callback que un escaneo real.
 
 ## El panel de WhatsApp
 
