@@ -372,7 +372,7 @@ const E = {
   encargueCancelando:'', entregandoEncargue:'',
   clienteDirAprox:null,
   vista:'hoy',
-  sesion:null, loginPaso:'clave', loginError:'', loginCargando:false,
+  sesion:null, loginPaso:'clave', loginError:'', loginCargando:false, cambiandoApi:false,
   loginTicket:'', loginSecreto:'', loginUri:'', loginUsuario:'',
   usuariosLista:[], usuariosCargando:false, usuariosError:'', altaUsuarioError:'',
 };
@@ -380,19 +380,21 @@ const MOTIVOS_ENCARGUE = ['cliente desistió','no se consiguió','se venció el 
 
 /* ============================================================
    sesión real · DZ-SEG-01
-   La URL de la API se pide una vez y queda en este dispositivo,
-   igual que la key de Google Maps — nunca escrita en el código.
-   El token de sesión también: localStorage, nunca en el archivo.
+   La URL de la API tiene un default —el Worker desplegado— y se
+   puede cambiar por dispositivo (para desarrollo local, o si algún
+   día se muda). No es un secreto: es una dirección pública, a
+   diferencia de la key de Google Maps o del token de sesión, que
+   sí viven sólo en localStorage y nunca en el código.
    ============================================================ */
+const API_POR_DEFECTO = 'https://depo-zeta-api.tukyquilme.workers.dev';
 const API_LS = 'dz.apiUrl', TOKEN_LS = 'dz.token';
-const getApiUrl = () => { try{ return localStorage.getItem(API_LS)||''; }catch(e){ return ''; } };
-const setApiUrl  = v => { try{ localStorage.setItem(API_LS, v.replace(/\/$/,'')); }catch(e){} };
+const getApiUrl = () => { try{ return localStorage.getItem(API_LS) || API_POR_DEFECTO; }catch(e){ return API_POR_DEFECTO; } };
+const setApiUrl  = v => { try{ v ? localStorage.setItem(API_LS, v.replace(/\/$/,'')) : localStorage.removeItem(API_LS); }catch(e){} };
 const getToken   = () => { try{ return localStorage.getItem(TOKEN_LS)||''; }catch(e){ return ''; } };
 const setToken    = v => { try{ v ? localStorage.setItem(TOKEN_LS,v) : localStorage.removeItem(TOKEN_LS); }catch(e){} };
 
 async function api(ruta, opciones={}){
   const base = getApiUrl();
-  if(!base) throw Object.assign(new Error('Falta configurar la URL de la API.'), {codigo:'SIN_API'});
   const headers = Object.assign({'Content-Type':'application/json'}, opciones.headers||{});
   const token = getToken();
   if(token) headers.Authorization = 'Bearer '+token;
@@ -401,6 +403,14 @@ async function api(ruta, opciones={}){
     res = await fetch(base+ruta, Object.assign({}, opciones, {headers}));
   }catch(e){
     throw Object.assign(new Error('No se pudo conectar con la API en '+base+'. ¿Está corriendo?'), {codigo:'SIN_CONEXION'});
+  }
+  /* 404/405 en una ruta de la API casi siempre significa lo mismo: la URL
+     configurada apunta al sitio del front (que sólo sirve páginas), no al
+     Worker. Decirlo así ahorra el rato de mirar un «HTTP 405» pelado. */
+  if(res.status===404 || res.status===405){
+    throw Object.assign(new Error(
+      'La dirección '+base+' no es la API — parece el sitio de la app. La API es '+API_POR_DEFECTO+'. Tocá «cambiar servidor» para corregirlo.'
+    ), {codigo:'API_MAL_CONFIGURADA'});
   }
   const datos = await res.json().catch(()=>({}));
   if(!res.ok) throw Object.assign(new Error(datos.mensaje||('HTTP '+res.status)), {codigo:datos.error||'ERROR'});
@@ -1354,7 +1364,6 @@ function mostrarLogin(){
 }
 
 async function verificarSesion(){
-  if(!getApiUrl()){ renderLogin(); return; }
   const token = getToken();
   if(!token){ mostrarLogin(); return; }
   try{
@@ -1370,13 +1379,20 @@ async function verificarSesion(){
 
 function renderLogin(){
   const el = $('#login-cuerpo');
-  if(!getApiUrl()){
+  /* La API ya tiene una dirección por defecto: esta pantalla sólo aparece
+     si alguien la pide expresamente («cambiar servidor»), para apuntar a
+     un `wrangler dev` local o a otro despliegue. */
+  if(E.cambiandoApi){
     el.innerHTML = `
-      <div class="login-aviso">Primero, dónde vive el servidor. Es la URL del Worker
-        (<span class="mono">http://localhost:8787</span> en desarrollo local).</div>
-      <div class="campo"><label>URL de la API</label><input id="in-api-url" placeholder="http://localhost:8787"></div>
+      <div class="login-aviso">Dónde vive el servidor. Por defecto es
+        <span class="mono">${API_POR_DEFECTO}</span>; en desarrollo local,
+        <span class="mono">http://localhost:8787</span>.</div>
+      <div class="campo"><label>URL de la API</label><input id="in-api-url" value="${getApiUrl()}" placeholder="${API_POR_DEFECTO}"></div>
       ${E.loginError?`<div class="nota" style="border-color:var(--rojo)">${E.loginError}</div>`:''}
-      <button class="btn pri" style="width:100%" onclick="guardarApiUrl()">Continuar</button>`;
+      <button class="btn pri" style="width:100%" onclick="guardarApiUrl()">Continuar</button>
+      <div style="margin-top:14px;font-size:11px;color:var(--mudo);text-align:center">
+        <a href="#" onclick="event.preventDefault();setApiUrl('');E.cambiandoApi=false;E.loginError='';renderLogin()" style="color:var(--mudo)">volver a la de siempre</a>
+      </div>`;
     return;
   }
 
@@ -1387,7 +1403,7 @@ function renderLogin(){
       ${E.loginError?`<div class="nota" style="border-color:var(--rojo)">${E.loginError}</div>`:''}
       <button class="btn pri" style="width:100%" onclick="enviarLogin()" ${E.loginCargando?'disabled':''}>${E.loginCargando?'Entrando…':'Entrar'}</button>
       <div style="margin-top:14px;font-size:11px;color:var(--mudo);text-align:center">
-        <a href="#" onclick="event.preventDefault();E.loginError='';getApiUrl()&&confirm('¿Cambiar la URL de la API?')&&(setApiUrl(''),renderLogin())" style="color:var(--mudo)">cambiar servidor</a>
+        <a href="#" onclick="event.preventDefault();E.loginError='';E.cambiandoApi=true;renderLogin()" style="color:var(--mudo)">cambiar servidor</a>
       </div>`;
     return;
   }
@@ -1411,6 +1427,7 @@ function guardarApiUrl(){
   const v = ($('#in-api-url').value||'').trim();
   if(!v){ E.loginError='Falta la URL.'; renderLogin(); return; }
   setApiUrl(v);
+  E.cambiandoApi = false;
   E.loginError='';
   renderLogin();
 }
