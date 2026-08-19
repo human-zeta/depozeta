@@ -388,8 +388,31 @@ const MOTIVOS_ENCARGUE = ['cliente desistió','no se consiguió','se venció el 
    ============================================================ */
 const API_POR_DEFECTO = 'https://depo-zeta-api.tukyquilme.workers.dev';
 const API_LS = 'dz.apiUrl', TOKEN_LS = 'dz.token';
-const getApiUrl = () => { try{ return localStorage.getItem(API_LS) || API_POR_DEFECTO; }catch(e){ return API_POR_DEFECTO; } };
-const setApiUrl  = v => { try{ v ? localStorage.setItem(API_LS, v.replace(/\/$/,'')) : localStorage.removeItem(API_LS); }catch(e){} };
+
+/* Una dirección tipeada a mano llega de muchas formas: sin protocolo, con
+   `http://` donde el server sólo habla `https`, con barra al final. Se
+   normaliza en un solo lugar —al leer, no sólo al guardar— así una URL que
+   ya quedó mal guardada se corrige sola en la próxima visita, sin que
+   nadie tenga que ir a limpiar el navegador.
+   Excepción: localhost y las IPs de red local siguen por http, que es como
+   corre `wrangler dev`. */
+function normalizarApiUrl(v){
+  let u = String(v||'').trim().replace(/\/+$/,'');
+  if(!u) return '';
+  const host = u.replace(/^https?:\/\//i, '');
+  const esLocal = /^(localhost|127\.0\.0\.1|\[::1\]|192\.168\.|10\.)/i.test(host);
+  return (esLocal ? 'http://' : 'https://') + host;
+}
+const getApiUrl = () => {
+  try{ return normalizarApiUrl(localStorage.getItem(API_LS)) || API_POR_DEFECTO; }
+  catch(e){ return API_POR_DEFECTO; }
+};
+const setApiUrl  = v => {
+  try{
+    const u = normalizarApiUrl(v);
+    u ? localStorage.setItem(API_LS, u) : localStorage.removeItem(API_LS);
+  }catch(e){}
+};
 const getToken   = () => { try{ return localStorage.getItem(TOKEN_LS)||''; }catch(e){ return ''; } };
 const setToken    = v => { try{ v ? localStorage.setItem(TOKEN_LS,v) : localStorage.removeItem(TOKEN_LS); }catch(e){} };
 
