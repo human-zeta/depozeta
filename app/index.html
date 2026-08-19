@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>depo zeta — prototipo F0</title>
+<title>depo zeta</title>
 <style>
 :root{
   --fondo:#08120E; --panel:rgba(255,255,255,.055); --borde:rgba(255,255,255,.11);
@@ -260,7 +260,7 @@ select option{background:#0d1a14}
   <header>
     <div class="marca">
       <h1>depo <span>zeta</span></h1>
-      <span class="sub">DZ-APP-01 · PROTOTIPO F0</span>
+      <span class="sub">DZ-APP-01 · DZ-SEG-01</span>
     </div>
     <div class="jornada">
       <span class="chip on" id="chip-fecha">—</span>
@@ -281,11 +281,11 @@ select option{background:#0d1a14}
   <section id="v-usuarios"></section>
 
   <div class="pie">
-    La sesión es real —login con clave y TOTP contra <code id="pie-api-url">la API</code>—.
-    Los datos que ves abajo (ventas, clientes, productos, el libro de asientos:
-    <code id="pie-asientos">0</code> generados en esta sesión) siguen siendo los de ejemplo
-    de F0, en memoria del navegador — no sincronizan con el servidor todavía. Ver
-    <code>DZ-SEG-01</code>.
+    Todo lo de abajo es real —login con clave y TOTP, catálogo, cartera, ventas y el libro
+    de asientos (<code id="pie-asientos">0</code> cargados) sincronizados contra
+    <code id="pie-api-url">la API</code>—. Lo que falta: reporte consolidado de varios
+    repartidores a la vez, trabajar sin conexión, recuperar clave. Ver
+    <code>DZ-SEG-01</code> y <code>DZ-MOD-01</code>.
   </div>
 </div>
 
@@ -330,127 +330,44 @@ const $  = (s,c)=>(c||document).querySelector(s);
 const $$ = (s,c)=>Array.from((c||document).querySelectorAll(s));
 const peso = n => '$ ' + Math.round(n||0).toLocaleString('es-AR');
 const DIAS = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+const diasDesde = fechaIso => fechaIso ? Math.floor((Date.now()-new Date(fechaIso))/86400000) : null;
 
 /* ---------------- catálogo ---------------- */
 const LISTAS = [{id:'mayorista',nombre:'Mayorista'},{id:'minorista',nombre:'Minorista'}];
 const MOTIVOS = [['cerrado','Cerrado'],['no_estaba','No estaba'],['tiene_stock','Tiene stock'],['precio','Precio'],['otro','Otro']];
 
-const PRODUCTOS = [
- {id:'COLA225',nombre:'Gaseosa cola 2,25 L',rubro:'Bebidas',porBulto:6, costo:1180,dias:6, precios:{mayorista:1560,minorista:1790}, deposito:180},
- {id:'AGUA2',  nombre:'Agua mineral 2 L',   rubro:'Bebidas',porBulto:6, costo:620, dias:6, precios:{mayorista:850, minorista:990},  deposito:144},
- {id:'CERV1',  nombre:'Cerveza 1 L retornable',rubro:'Bebidas',porBulto:12,costo:1450,dias:9,precios:{mayorista:1890,minorista:2150},deposito:120,retornable:true},
- {id:'YERBA1', nombre:'Yerba 1 kg',         rubro:'Almacén',porBulto:10,costo:3850,dias:2, precios:{mayorista:3990,minorista:4550}, deposito:60, vence:true},
- {id:'ACEITE9',nombre:'Aceite girasol 900 ml',rubro:'Almacén',porBulto:12,costo:1980,dias:41,precios:{mayorista:2540,minorista:2890},deposito:96, vence:true},
- {id:'FIDEO5', nombre:'Fideos guiseros 500 g',rubro:'Almacén',porBulto:20,costo:690, dias:11,precios:{mayorista:920, minorista:1090},deposito:200,vence:true},
- {id:'ARROZ1', nombre:'Arroz largo fino 1 kg',rubro:'Almacén',porBulto:10,costo:980, dias:11,precios:{mayorista:1290,minorista:1490},deposito:110,vence:true},
- {id:'AZUCAR1',nombre:'Azúcar 1 kg',        rubro:'Almacén',porBulto:10,costo:890, dias:18,precios:{mayorista:1150,minorista:1350}, deposito:90, vence:true},
- {id:'GALL400',nombre:'Galletitas surtidas 400 g',rubro:'Almacén',porBulto:12,costo:780,dias:14,precios:{mayorista:1020,minorista:1190},deposito:108,vence:true},
- {id:'LAVA1',  nombre:'Lavandina 1 L',      rubro:'Limpieza',porBulto:12,costo:540, dias:23,precios:{mayorista:720, minorista:850},  deposito:132},
- {id:'DETER75',nombre:'Detergente 750 ml',  rubro:'Limpieza',porBulto:12,costo:890, dias:23,precios:{mayorista:1180,minorista:1390}, deposito:84},
- {id:'PAPEL4', nombre:'Papel higiénico x4', rubro:'Limpieza',porBulto:10,costo:1420,dias:9, precios:{mayorista:1850,minorista:2150}, deposito:70},
-];
+/* Catálogo y cartera reales — se cargan de server/api/ al iniciar sesión
+   (cargarLibro(), más abajo). F0 tenía acá 12 productos y 36 clientes de
+   ejemplo hardcodeados; se sacaron porque ahora hay una base real detrás y
+   mezclar datos de demo con datos de producción sería un desastre. */
+let PRODUCTOS = [];
+let CLIENTES = [];
 
-/* frecuencia: 1=lunes … 6=sábado */
-const CLIENTES = [
- {id:'C01',recibe:[[7.5,13],[16,19]],nombre:'Kiosco La Esquina',contacto:'Marisa',tel:'11 5512-8840',dir:'Zapiola 1240, Bernal',ref:'La esquina, toldo rojo',zona:'Bernal',orden:1,lista:'mayorista',dias:[1,4],punto:{lat:-34.7085,lng:-58.2812},ultima:4,notas:'Cobra Marisa, el marido no toca la caja.'},
- {id:'C02',recibe:[[8,13],[16,19]],nombre:'Almacén Doña Rosa',contacto:'Rosa',tel:'11 5533-1129',dir:'Belgrano 3355, Bernal',ref:'Rejas verdes al lado del kiosco',zona:'Bernal',orden:2,lista:'mayorista',dias:[1,4],punto:{lat:-34.7112,lng:-58.2779},ultima:4,notas:'Cierra al mediodía.'},
- {id:'C03',recibe:[[8,18]],nombre:'Despensa El Ombú',contacto:'Néstor',tel:'11 5588-0034',dir:'Av. Calchaquí 2870, Quilmes Oeste',ref:'Frente a la parada del 98',zona:'Quilmes O.',orden:3,lista:'mayorista',dias:[1,4],punto:{lat:-34.7401,lng:-58.2955},ultima:4,notas:''},
- {id:'C04',recibe:[[9,17]],nombre:'Autoservicio Hnos. Paz',contacto:'Julián',tel:'11 5544-7781',dir:'Los Andes 445, Quilmes Oeste',ref:'Portón gris, se descarga por atrás',zona:'Quilmes O.',orden:4,lista:'mayorista',dias:[1,4],punto:{lat:-34.7433,lng:-58.2988},ultima:11,notas:'Pide remito con detalle siempre.'},
-
- {id:'C05',recibe:[[8,19]],nombre:'Fiambrería Don Ángel',contacto:'Ángel',tel:'11 5567-2213',dir:'Mitre 890, Wilde',ref:'Al lado de la farmacia',zona:'Wilde',orden:1,lista:'mayorista',dias:[2,5],punto:{lat:-34.6975,lng:-58.3182},ultima:3,notas:''},
- {id:'C06',recibe:[[8,18]],nombre:'Minimercado Sur',contacto:'Wei',tel:'11 5590-4477',dir:'Las Flores 122, Wilde',ref:'',zona:'Wilde',orden:2,lista:'mayorista',dias:[2,5],punto:{lat:-34.7002,lng:-58.3210},ultima:3,notas:'Descarga rápida, tienen changuito.'},
- {id:'C07',recibe:[[0,24]],nombre:'Kiosco 24hs Mitre',contacto:'Damián',tel:'11 5501-9982',dir:'Mitre 1450, Quilmes Centro',ref:'Casa de rejas negras, timbre del fondo',zona:'Quilmes C.',orden:3,lista:'minorista',dias:[2,5],punto:null,ultima:null,notas:'Cliente nuevo. Todavía sin punto: se navega por dirección.'},
- {id:'C08',recibe:[[11,23]],nombre:'Bar El Refugio',contacto:'Sabrina',tel:'11 5522-6610',dir:'Alsina 720, Bernal',ref:'Persiana azul',zona:'Bernal',orden:4,lista:'minorista',dias:[2,5],punto:{lat:-34.7059,lng:-58.2841},ultima:10,notas:'Solo cerveza y gaseosa.'},
-
- {id:'C09',recibe:[[6,11]],nombre:'Panadería Las Tres',contacto:'Elsa',tel:'11 5577-3320',dir:'Rivadavia 560, Quilmes',ref:'',zona:'Quilmes C.',orden:3,lista:'mayorista',dias:[3,6],punto:{lat:-34.7218,lng:-58.2664},ultima:5,notas:'Cambió el horario: ahora cierra 11. La ruta de siempre le llega tarde.'},
- {id:'C10',recibe:[[8,18]],nombre:'Almacén La Tranquera',contacto:'Beto',tel:'11 5539-8812',dir:'Sarmiento 2210, Bernal',ref:'Después del lomo de burro',zona:'Bernal',orden:2,lista:'mayorista',dias:[3,6],punto:{lat:-34.7091,lng:-58.2903},ultima:5,notas:''},
- {id:'C11',recibe:[[10,15],[19,23]],nombre:'Rotisería El Fogón',contacto:'Carlos',tel:'11 5566-1140',dir:'9 de Julio 330, Wilde',ref:'',zona:'Wilde',orden:3,lista:'mayorista',dias:[3,6],punto:{lat:-34.6991,lng:-58.3149},ultima:19,notas:'Bajó el consumo. Ver por qué. Cierra la tarde.'},
- {id:'C12',recibe:[[18,24]],nombre:'Drugstore Nocturno',contacto:'Fede',tel:'11 5511-2299',dir:'Av. San Martín 1180, Bernal',ref:'',zona:'Bernal',orden:9,lista:'minorista',dias:[],punto:{lat:-34.7043,lng:-58.2795},ultima:27,notas:'Solo por pedido. Abre de noche.'},
-
- {id:'C13',recibe:[[7,13],[16,20]],nombre:'Kiosco El Trébol',contacto:'Nadia',tel:'11 5510-1000',dir:'Espora 1130, Bernal',ref:'Pegado al lavadero',zona:'Bernal',orden:5,lista:'mayorista',dias:[1, 4],punto:{lat:-34.7215,lng:-58.2954},ultima:4,notas:''},
- {id:'C14',recibe:[[8,18]],nombre:'Almacén San Cayetano',contacto:'Pedro',tel:'11 5511-1137',dir:'Rodríguez Peña 2240, Bernal',ref:'',zona:'Bernal',orden:6,lista:'mayorista',dias:[1, 4],punto:{lat:-34.7019,lng:-58.2799},ultima:4,notas:'Paga siempre con transferencia.'},
- {id:'C15',recibe:[[6,23]],nombre:'Maxikiosco La Nueva',contacto:'Vero',tel:'11 5512-1274',dir:'Av. San Martín 2015, Bernal',ref:'',zona:'Bernal',orden:7,lista:'minorista',dias:[1, 4],punto:{lat:-34.7131,lng:-58.2923},ultima:4,notas:''},
- {id:'C16',recibe:[[6,13]],nombre:'Verdulería Los Pinos',contacto:'Kim',tel:'11 5513-1411',dir:'Lamadrid 1870, Quilmes Oeste',ref:'Cierra a las 13',zona:'Quilmes O.',orden:8,lista:'mayorista',dias:[1, 4],punto:{lat:-34.7275,lng:-58.2908},ultima:11,notas:'Cierra temprano, hay que llegar antes.'},
- {id:'C17',recibe:[[9,19]],nombre:'Polirrubro El Cruce',contacto:'Silvia',tel:'11 5514-1548',dir:'Av. Vicente López 3320, Quilmes Oeste',ref:'Esquina con semáforo',zona:'Quilmes O.',orden:9,lista:'mayorista',dias:[1, 4],punto:{lat:-34.7387,lng:-58.3032},ultima:4,notas:''},
- {id:'C18',recibe:[[8,13],[16,19]],nombre:'Despensa Santa Rita',contacto:'Hugo',tel:'11 5515-1685',dir:'Larrea 655, Quilmes Oeste',ref:'',zona:'Quilmes O.',orden:10,lista:'mayorista',dias:[1, 4],punto:{lat:-34.7499,lng:-58.2877},ultima:4,notas:''},
- {id:'C19',recibe:[[7,13],[17,20]],nombre:'Carnicería Don Pedro',contacto:'Pedro',tel:'11 5516-1822',dir:'Los Andes 1290, Quilmes Oeste',ref:'',zona:'Quilmes O.',orden:11,lista:'mayorista',dias:[1, 4],punto:{lat:-34.7303,lng:-58.3001},ultima:18,notas:'Solo bebidas y limpieza.'},
- {id:'C20',recibe:[[8,18]],nombre:'Almacén La Rueda',contacto:'Toni',tel:'11 5517-1959',dir:'Zapiola 2440, Bernal',ref:'',zona:'Bernal',orden:12,lista:'mayorista',dias:[1, 4],punto:{lat:-34.7075,lng:-58.2706},ultima:4,notas:''},
- {id:'C21',recibe:[[7,20]],nombre:'Café de la Plaza',contacto:'Lucas',tel:'11 5518-2096',dir:'Belgrano 1990, Bernal',ref:'Frente a la plaza',zona:'Bernal',orden:13,lista:'minorista',dias:[1, 4],punto:{lat:-34.7187,lng:-58.2830},ultima:4,notas:''},
- {id:'C22',recibe:[[8,18]],nombre:'Autoservicio El Progreso',contacto:'Marta',tel:'11 5519-2233',dir:'Bragado 780, Wilde',ref:'',zona:'Wilde',orden:5,lista:'mayorista',dias:[2, 5],punto:{lat:-34.6906,lng:-58.3299},ultima:3,notas:''},
- {id:'C23',recibe:[[7,21]],nombre:'Kiosco Doña Pepa',contacto:'Pepa',tel:'11 5520-2370',dir:'Las Flores 640, Wilde',ref:'',zona:'Wilde',orden:6,lista:'minorista',dias:[2, 5],punto:{lat:-34.7018,lng:-58.3144},ultima:3,notas:''},
- {id:'C24',recibe:[[5,11]],nombre:'Panadería La Estrella',contacto:'Ariel',tel:'11 5521-2507',dir:'Mitre 1320, Wilde',ref:'Cortina baja después de 11',zona:'Wilde',orden:7,lista:'mayorista',dias:[2, 5],punto:{lat:-34.7130,lng:-58.3268},ultima:3,notas:'Arranca a las 5. Si llegás tarde no atiende.'},
- {id:'C25',recibe:[[8,19]],nombre:'Minimercado Villa Luján',contacto:'Nico',tel:'11 5522-2644',dir:'Alvear 2210, Quilmes',ref:'',zona:'Quilmes C.',orden:8,lista:'mayorista',dias:[2, 5],punto:{lat:-34.7154,lng:-58.2538},ultima:3,notas:''},
- {id:'C26',recibe:[[9,18]],nombre:'Dietética El Sol',contacto:'Cecilia',tel:'11 5523-2781',dir:'Rivadavia 1180, Quilmes',ref:'',zona:'Quilmes C.',orden:9,lista:'minorista',dias:[2, 5],punto:{lat:-34.7266,lng:-58.2662},ultima:10,notas:'No lleva gaseosa.'},
- {id:'C27',recibe:[[11,15],[19,24]],nombre:'Pizzería El Bodegón',contacto:'Raúl',tel:'11 5524-2918',dir:'Sarmiento 890, Quilmes',ref:'Persiana gris',zona:'Quilmes C.',orden:10,lista:'minorista',dias:[2, 5],punto:{lat:-34.7070,lng:-58.2507},ultima:10,notas:'Solo abre mediodía y noche.'},
- {id:'C28',recibe:[[8,13],[16,20]],nombre:'Almacén Los Hermanos',contacto:'Tito',tel:'11 5525-3055',dir:'9 de Julio 1540, Wilde',ref:'',zona:'Wilde',orden:11,lista:'mayorista',dias:[2, 5],punto:{lat:-34.6962,lng:-58.3206},ultima:3,notas:''},
- {id:'C29',recibe:[[7,14]],nombre:'Granja Del Valle',contacto:'Luz',tel:'11 5526-3192',dir:'Moreno 470, Quilmes',ref:'',zona:'Quilmes C.',orden:12,lista:'mayorista',dias:[2, 5],punto:{lat:-34.7294,lng:-58.2476},ultima:3,notas:''},
- {id:'C30',recibe:[[8,18]],nombre:'Despensa El Molino',contacto:'Rubén',tel:'11 5527-3329',dir:'Sarmiento 1780, Bernal',ref:'',zona:'Bernal',orden:13,lista:'mayorista',dias:[3, 6],punto:{lat:-34.6963,lng:-58.2830},ultima:5,notas:''},
- {id:'C31',recibe:[[7,22]],nombre:'Kiosco Mitre y Alsina',contacto:'Fer',tel:'11 5528-3466',dir:'Mitre 2050, Quilmes',ref:'',zona:'Quilmes C.',orden:5,lista:'minorista',dias:[3, 6],punto:{lat:-34.7210,lng:-58.2724},ultima:5,notas:''},
- {id:'C32',recibe:[[8,19]],nombre:'Autoservicio La Perla',contacto:'Chen',tel:'11 5529-3603',dir:'Brown 1340, Quilmes',ref:'Descarga en la vereda',zona:'Quilmes C.',orden:6,lista:'mayorista',dias:[3, 6],punto:{lat:-34.7322,lng:-58.2569},ultima:5,notas:''},
- {id:'C33',recibe:[[8,13]],nombre:'Forrajería El Campo',contacto:'Osvaldo',tel:'11 5530-3740',dir:'Roca 3010, Bernal',ref:'',zona:'Bernal',orden:7,lista:'mayorista',dias:[3, 6],punto:{lat:-34.6991,lng:-58.2923},ultima:26,notas:'Cierra al mediodía y no vuelve.'},
- {id:'C34',recibe:[[10,24]],nombre:'Bar La Terminal',contacto:'Diego',tel:'11 5531-3877',dir:'Av. San Martín 690, Bernal',ref:'',zona:'Bernal',orden:8,lista:'minorista',dias:[3, 6],punto:{lat:-34.7103,lng:-58.2768},ultima:5,notas:''},
- {id:'C35',recibe:[[8,13],[16,19]],nombre:'Almacén Doña Chela',contacto:'Chela',tel:'11 5532-4014',dir:'Ameghino 1120, Wilde',ref:'',zona:'Wilde',orden:9,lista:'mayorista',dias:[3, 6],punto:{lat:-34.7130,lng:-58.3237},ultima:5,notas:''},
- {id:'C36',recibe:[[8,20]],nombre:'Minimercado 5 Esquinas',contacto:'Ana',tel:'11 5533-4151',dir:'Bragado 2280, Wilde',ref:'',zona:'Wilde',orden:10,lista:'mayorista',dias:[3, 6],punto:{lat:-34.6934,lng:-58.3082},ultima:5,notas:''}
-];
-
-/* histórico promedio por cliente, para la carga sugerida (unidades por visita) */
-const HISTORICO = {
- C01:{COLA225:12,AGUA2:12,GALL400:12,PAPEL4:5},
- C02:{FIDEO5:20,ARROZ1:10,AZUCAR1:10,ACEITE9:6,LAVA1:6},
- C03:{COLA225:18,AGUA2:12,FIDEO5:20,YERBA1:5},
- C04:{COLA225:24,AGUA2:18,ARROZ1:20,ACEITE9:12,PAPEL4:10,DETER75:12},
- C05:{COLA225:12,CERV1:24,GALL400:12},
- C06:{COLA225:18,AGUA2:12,FIDEO5:20,ARROZ1:10,LAVA1:12,PAPEL4:10},
- C07:{COLA225:6,AGUA2:6,GALL400:6},
- C08:{CERV1:36,COLA225:12},
- C09:{AZUCAR1:20,ACEITE9:12,YERBA1:5},
- C10:{FIDEO5:20,ARROZ1:10,LAVA1:12,DETER75:12,PAPEL4:10},
- C11:{ACEITE9:12,COLA225:12,PAPEL4:5},
- C12:{COLA225:6,CERV1:12},
- C13:{COLA225:12,AGUA2:6,GALL400:12},
- C14:{FIDEO5:20,ARROZ1:10,AZUCAR1:10,LAVA1:6},
- C15:{COLA225:18,AGUA2:12,GALL400:18},
- C16:{PAPEL4:5,LAVA1:6,DETER75:6},
- C17:{COLA225:12,FIDEO5:20,PAPEL4:10,DETER75:12},
- C18:{ARROZ1:10,ACEITE9:12,YERBA1:5,AZUCAR1:10},
- C19:{COLA225:12,LAVA1:12,PAPEL4:5},
- C20:{FIDEO5:20,YERBA1:5,ACEITE9:6,GALL400:12},
- C21:{AGUA2:12,COLA225:12,AZUCAR1:10},
- C22:{COLA225:24,FIDEO5:20,ARROZ1:20,PAPEL4:10,DETER75:12},
- C23:{COLA225:12,GALL400:12,AGUA2:6},
- C24:{AZUCAR1:20,ACEITE9:12,YERBA1:5},
- C25:{COLA225:18,FIDEO5:20,LAVA1:12,PAPEL4:10},
- C26:{ARROZ1:10,YERBA1:5,AZUCAR1:10},
- C27:{COLA225:24,CERV1:24,AGUA2:12},
- C28:{FIDEO5:20,ARROZ1:10,ACEITE9:12,AZUCAR1:10},
- C29:{AGUA2:12,PAPEL4:5,LAVA1:6},
- C30:{FIDEO5:20,ARROZ1:10,YERBA1:5},
- C31:{COLA225:18,GALL400:12,AGUA2:12},
- C32:{COLA225:24,FIDEO5:20,PAPEL4:10,DETER75:12,LAVA1:12},
- C33:{ARROZ1:10,AZUCAR1:10},
- C34:{CERV1:36,COLA225:12,AGUA2:6},
- C35:{FIDEO5:20,ACEITE9:12,LAVA1:6,GALL400:12},
- C36:{COLA225:18,ARROZ1:10,PAPEL4:10,DETER75:12}
-};
+/* histórico de compra por cliente, para la carga sugerida — todavía no hay
+   una fuente real (necesita acumular ventas reales primero); sugerido()
+   devuelve 0 mientras tanto, en vez de inventar un número. */
+const HISTORICO = {};
 
 /* ---------------- estado ---------------- */
 const HOY = new Date();
 const DIA_SEMANA = HOY.getDay();
-const REPARTIDOR = 'Marcos';
+/* antes una constante fija ('Marcos'); ahora es quien está logueado —
+   se completa en verificarSesion()/enviarTotp(), no antes. */
+let REPARTIDOR = '';
 const DISPOSITIVO = 'CEL-01';
-const CAM = 'camioneta:' + REPARTIDOR;
+let CAM = '';   // 'camioneta:' + REPARTIDOR — se completa junto con REPARTIDOR
 
 const E = {
-  asientos:[], ventas:[], noVentas:[], seq:0,
+  asientos:[], ventas:[], noVentas:[],
   cargaConfirmada:false,
   contado:{},                       /* lo que el repartidor cuenta al volver */
   caja:{efectivo:'',transferencia:'',qr:''},
   ventaEnCurso:{cliente:'',renglones:[]},
   noVentaAbierta:'', aviso:'',
   ordenOptimo:[], perfil:'repartidor',
-  zonas:[], zonaSeq:0, avisoZona:'',       /* zonas a evitar: las carga el usuario, no la app */
+  zonas:[], avisoZona:'',       /* zonas a evitar: las carga el usuario, no la app */
   avisoProducto:'', avisoCliente:'', waAbierto:false,
-  encargues:[], encargueSeq:0, avisoEncargue:'',
+  encargues:[], avisoEncargue:'',
   encargueEnCurso:{cliente:'', tipoActual:'catalogo', renglones:[]},
   encargueCancelando:'', entregandoEncargue:'',
   clienteDirAprox:null,
@@ -496,14 +413,12 @@ const cli  = id => CLIENTES.find(c=>c.id===id);
    —más la gestión de usuarios, que es sólo suya y de depósito—. */
 const esDeposito = () => E.perfil==='deposito' || E.perfil==='admin';
 
-/* ---------------- motor ---------------- */
-function asentar(tipo, origen, destino, producto, cantidad, extra){
-  E.asientos.push(Object.assign({
-    id: DISPOSITIVO+'-'+(++E.seq),
-    fecha:new Date().toISOString(), tipo, origen, destino, producto,
-    cantidad, autor:REPARTIDOR, dispositivo:DISPOSITIVO
-  }, extra||{}));
-}
+/* ---------------- motor ----------------
+   asentar() en memoria ya no existe: todo asiento real lo crea el servidor
+   (server/api/, con app/core/libro.js) al confirmar carga, venta o alta de
+   producto con stock — ver cargarLibro() y las funciones que llaman a la
+   API más abajo. stock() sigue siendo local: calcula sobre E.asientos, que
+   ahora viene poblado de la API en vez de generado acá. */
 function stock(id, ubi){
   let s=0;
   for(const a of E.asientos){
@@ -513,9 +428,6 @@ function stock(id, ubi){
   }
   return s;
 }
-/* stock inicial del depósito: también entra por asiento, no por campo */
-PRODUCTOS.forEach(p=>asentar('compra','proveedor','deposito',p.id,p.deposito,{motivo:'saldo inicial'}));
-
 const rutaDelDia = () => CLIENTES.filter(c=>c.dias.includes(DIA_SEMANA))
   .sort((a,b)=>(E.ordenOptimo.indexOf(a.id)+1||99)-(E.ordenOptimo.indexOf(b.id)+1||99) || a.orden-b.orden);
 
@@ -711,12 +623,11 @@ function vHoy(){
   ${!E.cargaConfirmada && ruta.length ? `<div class="card glass" style="border-color:rgba(255,122,89,.3)">
     <div class="eyebrow" style="color:var(--coral)">Antes de salir</div>
     <div style="font-size:13.5px;color:var(--tenue)">${esDeposito()
-      ? 'La camioneta de Marcos está vacía. No se puede vender lo que no se cargó — es la invariante 4 de <span class="mono">DZ-MOD-01</span>.'
+      ? `La camioneta de ${REPARTIDOR} está vacía. No se puede vender lo que no se cargó — es la invariante 4 de <span class="mono">DZ-MOD-01</span>.`
       : 'El depósito todavía no te cargó la camioneta — avisale.'}</div>
     <div style="margin-top:11px;display:flex;gap:7px;flex-wrap:wrap">
       ${esDeposito()
         ? `<button class="btn pri" onclick="ir('carga')">Ir a cargar</button>` : ''}
-      <button class="btn" onclick="simular()">Simular la jornada entera</button>
     </div></div>` : ''}
 
   ${ruta.length>2?bloqueRuta(ruta):''}
@@ -822,7 +733,6 @@ function vCarga(){
       ? `<div class="nota"><b>Carga confirmada.</b> Quedaron ${E.asientos.filter(a=>a.tipo==='carga').length} asientos firmados por ${REPARTIDOR}. Para corregir se hace un contra-asiento, no se edita.</div>`
       : `<div style="margin-top:13px;display:flex;gap:7px;flex-wrap:wrap">
            <button class="btn pri" onclick="confirmarCarga()">Confirmar carga</button>
-           <button class="btn" onclick="simular()">Simular la jornada entera</button>
          </div>`}
   </div>
 
@@ -1090,8 +1000,8 @@ function vCierre(){
         <td class="num">${peso(totalVendido())}</td>
         <td class="num">${E.ventas.length}/${rutaDelDia().length}</td>
         <td class="num"><span class="dif ${difTotal?'mal':'cero'}">${difTotal?'−'+peso(valorFaltante):'0'}</span></td></tr></tbody></table></div>
-    <div class="nota">Con las tres camionetas, esta tabla es el tablero del día. <b>El faltante acumulado por persona no es una acusación, es un número</b> — y la mayoría de las veces aparece un error de carga.</div>
-    <div class="nota" style="border-color:var(--coral)"><b>Lo que este prototipo todavía no hace:</b> sin servidor, esconder los costos al repartidor es una decisión de interfaz, no de seguridad — quien tenga el celular puede abrir las herramientas del navegador y verlos igual. La separación real llega en F1: el servidor no le manda los datos que no le corresponden.</div>
+    <div class="nota">Con varias camionetas, esta tabla es el tablero del día. <b>El faltante acumulado por persona no es una acusación, es un número</b> — y la mayoría de las veces aparece un error de carga.</div>
+    <div class="nota" style="border-color:var(--coral)"><b>Lo que esta fila todavía no hace:</b> muestra sólo a quien tiene la sesión abierta ahora, no un consolidado de todos los repartidores a la vez — eso pide un reporte propio del servidor, todavía no construido. Lo que sí es real desde <span class="mono">DZ-SEG-01</span>: el costo que ves acá lo decide tu rol, verificado por el servidor en cada pedido — no es una pantalla distinta con los mismos datos abajo.</div>
   </div>`:''}
 
   ${E.noVentas.length?`<div class="card glass">
@@ -1128,7 +1038,12 @@ function vClientes(){
   <div class="card glass"><div class="tabla-scroll"><table>
     <thead><tr><th>Cliente</th><th>Frecuencia</th><th class="num">Últ.</th><th class="num">Ubicación</th></tr></thead>
     <tbody>${filas}</tbody></table></div></div>
-  <div class="nota">Rotisería El Fogón lleva <b>19 días</b> y Drugstore Nocturno <b>27</b>. La app no los reclama sola: los muestra en rojo antes de que se caigan.</div>
+  <div class="nota">${(() => {
+    const enAlerta = CLIENTES.filter(c=>c.ultima!==null && c.ultima>=10).sort((a,b)=>b.ultima-a.ultima).slice(0,3);
+    return enAlerta.length
+      ? enAlerta.map(c=>`${c.nombre} lleva <b>${c.ultima} días</b>`).join(' y ') + '. La app no los reclama sola: los muestra en rojo antes de que se caigan.'
+      : 'Ningún cliente lleva 10 días o más sin una visita todavía — cuando pase, la app lo marca en rojo acá, sin que nadie tenga que reclamarlo a mano.';
+  })()}</div>
 
   ${bloqueAgregarCliente()}
 
@@ -1220,12 +1135,13 @@ function vProductos(){
     <div class="card glass vacio">El costo de reposición y el margen los ve el depósito.<br>
     El repartidor vende con la lista del cliente, que ya la tiene en <b>Vender</b>.</div>`;
   const filas = PRODUCTOS.map(p=>{
-    const m = margen(p), viejo = p.dias>30;
+    const dias = diasDesde(p.costoActualizado);
+    const m = margen(p), viejo = dias>30;
     const col = m<10?'var(--rojo)':m<20?'var(--amarillo)':'var(--verde)';
     return `<tr>
       <td><div style="font-weight:540">${p.nombre}</div>
           <div class="mono" style="font-size:10.5px;color:var(--mudo)">${p.rubro} · bulto x${p.porBulto}${p.vence?' · vence':''}${p.retornable?' · retornable':''}</div></td>
-      <td class="num" style="color:${viejo?'var(--coral)':'var(--tenue)'}">${peso(p.costo)}<div style="font-size:10px;color:var(--mudo)">hace ${p.dias} d</div></td>
+      <td class="num" style="color:${viejo?'var(--coral)':'var(--tenue)'}">${peso(p.costo)}<div style="font-size:10px;color:var(--mudo)">${dias===null?'sin fecha':'hace '+dias+' d'}</div></td>
       <td class="num">${peso(p.precios.mayorista)}</td>
       <td class="num">${peso(p.precios.minorista)}</td>
       <td class="num" style="color:${col};font-weight:600">${m.toFixed(0)}%</td>
@@ -1234,7 +1150,7 @@ function vProductos(){
   }).join('');
 
   const flojos = PRODUCTOS.filter(p=>margen(p)<10);
-  const viejos = PRODUCTOS.filter(p=>p.dias>30);
+  const viejos = PRODUCTOS.filter(p=>diasDesde(p.costoActualizado)>30);
 
   return `
   <h2>Precios y stock</h2>
@@ -1257,7 +1173,7 @@ function vProductos(){
   </div>`:''}
   ${viejos.length?`<div class="card glass" style="border-color:rgba(255,122,89,.28)">
     <div class="eyebrow" style="color:var(--coral)">Costo desactualizado</div>
-    <div style="font-size:13px;color:var(--tenue)">${viejos.map(p=>p.nombre+' — hace '+p.dias+' días').join(' · ')}. Todo margen calculado sobre ese número es dudoso.</div>
+    <div style="font-size:13px;color:var(--tenue)">${viejos.map(p=>p.nombre+' — hace '+diasDesde(p.costoActualizado)+' días').join(' · ')}. Todo margen calculado sobre ese número es dudoso.</div>
   </div>`:''}
 
   <div class="card glass"><div class="tabla-scroll"><table>
@@ -1405,9 +1321,30 @@ const setKey = v => { try{ localStorage.setItem(KEY_LS,v); }catch(e){} };
    ============================================================ */
 function mapaPerfil(rol){ return {ADMIN:'admin', DEPOSITO:'deposito', REPARTIDOR:'repartidor'}[rol] || 'repartidor'; }
 
-function mostrarApp(){
+/* Trae el libro operativo real — catálogo, cartera, zonas, el libro de
+   asientos, ventas, no-ventas y encargues — de server/api/. Reemplaza los
+   datos de ejemplo que tenía F0 hardcodeados en el archivo. */
+async function cargarLibro(){
+  const [productos, clientes, zonas, asientos, ventas, noVentas, encargues] = await Promise.all([
+    api('/api/productos'), api('/api/clientes'), api('/api/zonas'), api('/api/asientos'),
+    api('/api/ventas'), api('/api/no-ventas'), api('/api/encargues'),
+  ]);
+  PRODUCTOS = productos;
+  CLIENTES = clientes;
+  E.zonas = zonas;
+  E.asientos = asientos;
+  E.ventas = ventas;
+  E.noVentas = noVentas;
+  E.encargues = encargues;
+}
+
+async function mostrarApp(){
+  REPARTIDOR = E.sesion.perfil.usuario;
+  CAM = 'camioneta:' + REPARTIDOR;
   $('#pantalla-login').hidden = true;
   $('#app-wrap').hidden = false;
+  try{ await cargarLibro(); }
+  catch(e){ E.aviso = 'No se pudo traer el libro del servidor: ' + e.message; }
   render();
 }
 function mostrarLogin(){
@@ -1424,7 +1361,7 @@ async function verificarSesion(){
     const perfil = await api('/api/yo');
     E.sesion = { token, perfil };
     E.perfil = mapaPerfil(perfil.rol);
-    mostrarApp();
+    await mostrarApp();
   }catch(e){
     setToken('');
     mostrarLogin();
@@ -1507,7 +1444,7 @@ async function enviarTotp(){
     E.sesion = { token:r.token, perfil:r.perfil };
     E.perfil = mapaPerfil(r.perfil.rol);
     E.loginPaso = 'clave'; E.loginTicket=''; E.loginSecreto=''; E.loginUri=''; E.loginUsuario=''; E.loginError='';
-    mostrarApp();
+    await mostrarApp();
   }catch(e){
     E.loginError = e.message;
     E.loginCargando = false;
@@ -1727,7 +1664,8 @@ function elegirEnMapa(){
 }
 /* Autocompletar el domicilio contra direcciones reales de Maps. No reemplaza
    el pin real —ese se sigue aprendiendo solo en la primera entrega, ver
-   capturarPunto()— sólo mejora el texto y deja un punto de arranque mejor
+   puntoSimulado() y puedeActualizarPunto() en app/core/clientes.js— sólo
+   mejora el texto y deja un punto de arranque mejor
    que el centroide de la zona que se usaba antes de tener cualquier pin.
    Se paga por sesión de autocompletado — a este volumen son centavos, pero
    verificá el precio vigente antes de escalarlo a toda la cartera. */
@@ -1758,7 +1696,7 @@ function buscarDireccionEnMaps(){
     });
   }, e=>panelMsg('<div class="nota" style="border-color:var(--rojo)">'+e+'</div>','Buscar dirección en Maps'), ['maps','places']);
 }
-function guardarZona(){
+async function guardarZona(){
   const nombre = ($('#in-zona-nombre').value||'').trim();
   const lat = +$('#in-zona-lat').value, lng = +$('#in-zona-lng').value;
   const radio = Math.max(30, +$('#in-zona-radio').value || 150);
@@ -1767,12 +1705,20 @@ function guardarZona(){
     E.avisoZona = 'Falta el nombre o las coordenadas — tipealas o tocá «Elegir en el mapa».';
     render(); return;
   }
-  E.zonas.push({id:'Z'+(++E.zonaSeq), nombre, lat, lng, radio,
-    motivo:($('#in-zona-motivo').value||'').trim(), hastaHora: horaTxt===''?null:+horaTxt});
-  E.avisoZona = '';
+  try{
+    const zona = await api('/api/zonas', {method:'POST', body:JSON.stringify({
+      nombre, lat, lng, radio, motivo:($('#in-zona-motivo').value||'').trim(), hastaHora: horaTxt===''?null:+horaTxt,
+    })});
+    E.zonas.push(zona);
+    E.avisoZona = '';
+  }catch(e){ E.avisoZona = e.message; }
   render();
 }
-function eliminarZona(id){ E.zonas = E.zonas.filter(z=>z.id!==id); render(); }
+async function eliminarZona(id){
+  try{ await api('/api/zonas/'+encodeURIComponent(id)+'/eliminar', {method:'POST'}); E.zonas = E.zonas.filter(z=>z.id!==id); }
+  catch(e){ E.avisoZona = e.message; }
+  render();
+}
 
 /* ============================================================
    panel WhatsApp · desplegable, sin bloquear el resto de la app
@@ -1829,48 +1775,48 @@ function renderWaDrawer(){
     <div>${filasChat}</div>`;
 }
 
-function guardarProducto(){
+async function guardarProducto(){
   const codigo = ($('#in-prod-codigo').value||'').trim();
   const nombre = ($('#in-prod-nombre').value||'').trim();
   if(!codigo || !nombre){ E.avisoProducto='Falta el código o el nombre.'; render(); return; }
   if(prod(codigo)){ E.avisoProducto='Ya existe un producto con el código '+codigo+' — es el id, no puede repetirse.'; render(); return; }
   const precios = {};
   LISTAS.forEach(l=>precios[l.id] = +($('#in-prod-precio-'+l.id).value)||0);
-  const nuevo = {
-    id: codigo, nombre, rubro: ($('#in-prod-rubro').value||'Sin rubro').trim(),
-    unidad: $('#in-prod-unidad').value, porBulto: +$('#in-prod-porbulto').value||1,
-    costo: +$('#in-prod-costo').value||0, dias: 0, precios,
-    vence: $('#in-prod-vence').checked, retornable: $('#in-prod-retornable').checked,
-  };
-  PRODUCTOS.push(nuevo);
-  const stockInicial = +$('#in-prod-stock').value||0;
-  if(stockInicial>0) asentar('compra','proveedor','deposito',codigo,stockInicial,{motivo:'alta de producto'});
-  E.avisoProducto = '';
+  try{
+    const nuevo = await api('/api/productos', {method:'POST', body:JSON.stringify({
+      id:codigo, nombre, rubro:($('#in-prod-rubro').value||'Sin rubro').trim(),
+      unidad:$('#in-prod-unidad').value, porBulto:+$('#in-prod-porbulto').value||1,
+      costo:+$('#in-prod-costo').value||0, precios,
+      vence:$('#in-prod-vence').checked, retornable:$('#in-prod-retornable').checked,
+      stockInicial:+$('#in-prod-stock').value||0,
+    })});
+    PRODUCTOS.push(nuevo);
+    if(+$('#in-prod-stock').value>0) E.asientos = await api('/api/asientos');
+    E.avisoProducto = '';
+  }catch(e){ E.avisoProducto = e.message; }
   render();
 }
 
-function siguienteIdCliente(){
-  const max = CLIENTES.reduce((m,c)=>Math.max(m, parseInt(c.id.slice(1),10)||0), 0);
-  return 'C'+String(max+1).padStart(2,'0');
-}
-function guardarCliente(){
+async function guardarCliente(){
   const nombre = ($('#in-cli-nombre').value||'').trim();
   const dir = ($('#in-cli-dir').value||'').trim();
   if(!nombre || !dir){ E.avisoCliente='Falta el nombre o el domicilio.'; render(); return; }
   const dias = $$('.in-cli-dia:checked').map(el=>+el.value).sort();
   const desde = $('#in-cli-desde').value, hasta = $('#in-cli-hasta').value;
   const recibe = (desde!=='' && hasta!=='') ? [[+desde, +hasta]] : null;
-  const nuevo = {
-    id: siguienteIdCliente(), nombre, contacto: ($('#in-cli-contacto').value||'').trim(),
-    tel: ($('#in-cli-tel').value||'').trim(), dir, ref: ($('#in-cli-ref').value||'').trim(),
-    zona: ($('#in-cli-zona').value||'Sin zona').trim(),
-    orden: CLIENTES.filter(c=>c.zona===($('#in-cli-zona').value||'').trim()).length + 1,
-    lista: $('#in-cli-lista').value, dias, punto: E.clienteDirAprox, ultima: null,
-    notas: ($('#in-cli-notas').value||'').trim(), recibe,
-  };
-  CLIENTES.push(nuevo);
-  E.avisoCliente = '';
-  E.clienteDirAprox = null;
+  const zona = ($('#in-cli-zona').value||'Sin zona').trim();
+  try{
+    const nuevo = await api('/api/clientes', {method:'POST', body:JSON.stringify({
+      nombre, contacto:($('#in-cli-contacto').value||'').trim(), tel:($('#in-cli-tel').value||'').trim(),
+      dir, ref:($('#in-cli-ref').value||'').trim(), zona,
+      orden: CLIENTES.filter(c=>c.zona===zona).length + 1,
+      lista: $('#in-cli-lista').value, dias, punto: E.clienteDirAprox,
+      notas: ($('#in-cli-notas').value||'').trim(), recibe,
+    })});
+    CLIENTES.push(nuevo);
+    E.avisoCliente = '';
+    E.clienteDirAprox = null;
+  }catch(e){ E.avisoCliente = e.message; }
   render();
 }
 
@@ -1916,13 +1862,17 @@ function compararGoogle(){
 /* ============================================================
    acciones
    ============================================================ */
-function confirmarCarga(){
-  PRODUCTOS.forEach(p=>{
+async function confirmarCarga(){
+  const renglones = PRODUCTOS.map(p=>{
     const el = $('#c-'+p.id); const n = el ? +el.value : 0;
-    if(n>0) asentar('carga','deposito',CAM,p.id,n,{ref:'carga-'+new Date().toDateString()});
-  });
-  E.cargaConfirmada = true;
-  ir('hoy');
+    return {producto:p.id, cantidad:n};
+  }).filter(r=>r.cantidad>0);
+  try{
+    if(renglones.length) await api('/api/carga', {method:'POST', body:JSON.stringify({repartidor:REPARTIDOR, renglones})});
+    E.asientos = await api('/api/asientos');
+    E.cargaConfirmada = true;
+    ir('hoy');
+  }catch(e){ E.aviso = 'No se pudo confirmar la carga: '+e.message; render(); }
 }
 function aplicarOptimo(){ E.ordenOptimo = optimizar(rutaDelDia()).map(c=>c.id); render(); }
 function irAVender(id){ E.ventaEnCurso = {cliente:id,renglones:[]}; ir('vender'); }
@@ -1957,52 +1907,53 @@ function agregarRenglonEncargue(){
   E.avisoEncargue = '';
   render();
 }
-function guardarEncargue(){
+async function guardarEncargue(){
   const enc = E.encargueEnCurso;
   if(!enc.cliente || !enc.renglones.length){ E.avisoEncargue='Elegí un cliente y agregá al menos un renglón.'; render(); return; }
-  const id = 'ENC'+(++E.encargueSeq);
-  E.encargues.push({
-    id, cliente:enc.cliente, fecha:new Date().toISOString(), autor:REPARTIDOR,
-    renglones: enc.renglones, estado:'pendiente', motivo:'', ventaId:null,
-  });
-  E.encargueEnCurso = {cliente:'', tipoActual:'catalogo', renglones:[]};
-  E.avisoEncargue = '';
+  try{
+    const nuevo = await api('/api/encargues', {method:'POST', body:JSON.stringify({cliente:enc.cliente, renglones:enc.renglones})});
+    E.encargues.push(nuevo);
+    E.encargueEnCurso = {cliente:'', tipoActual:'catalogo', renglones:[]};
+    E.avisoEncargue = '';
+  }catch(e){ E.avisoEncargue = e.message; }
   render();
 }
-function marcarPreparado(id){
-  const enc = E.encargues.find(e=>e.id===id);
-  if(enc) enc.estado = 'preparado';
+function reemplazarEncargue(enc){
+  const i = E.encargues.findIndex(e=>e.id===enc.id);
+  if(i>=0) E.encargues[i]=enc; else E.encargues.push(enc);
+}
+async function marcarPreparado(id){
+  try{ reemplazarEncargue(await api('/api/encargues/'+encodeURIComponent(id)+'/preparar', {method:'POST'})); }
+  catch(e){ E.avisoEncargue = e.message; }
   render();
 }
-function vincularProductoEspecial(id, idx, productoId){
+async function vincularProductoEspecial(id, idx, productoId){
   if(!productoId) return;
-  const enc = E.encargues.find(e=>e.id===id);
-  if(enc && enc.renglones[idx]) enc.renglones[idx].productoVinculado = productoId;
+  try{ reemplazarEncargue(await api('/api/encargues/'+encodeURIComponent(id)+'/vincular', {method:'POST', body:JSON.stringify({indice:idx, productoId})})); }
+  catch(e){ E.avisoEncargue = e.message; }
   render();
 }
-function confirmarEntregaEncargue(id){
+async function confirmarEntregaEncargue(id){
   const enc = E.encargues.find(e=>e.id===id);
   if(!enc || !encargueListoParaEntregar(enc)) return;
   const c = cli(enc.cliente);
-  capturarPunto(c);
+  const punto = puntoSimulado(c);
   const medio = $('#enc-medio-'+id).value;
-  const renglonesVenta = enc.renglones.map(r=>{
-    const pid = renglonProductoId(r), p = prod(pid);
-    return {producto:pid, cantidad:r.cantidad, precio:p.precios[c.lista], lista:c.lista};
-  });
-  const total = renglonesVenta.reduce((t,r)=>t+r.cantidad*r.precio,0);
-  const ventaId = DISPOSITIVO+'-V'+(E.ventas.length+1);
-  renglonesVenta.forEach(r=>asentar('venta',CAM,'cliente',r.producto,r.cantidad,{ref:ventaId, motivo:'entrega de encargue '+enc.id}));
-  E.ventas.push({id:ventaId, cliente:c.id, repartidor:REPARTIDOR, renglones:renglonesVenta, total, medio, remito:ventaId, punto:c.punto});
-  enc.estado = 'entregado';
-  enc.ventaId = ventaId;
-  E.entregandoEncargue = '';
+  try{
+    const venta = await api('/api/encargues/'+encodeURIComponent(id)+'/entregar', {method:'POST', body:JSON.stringify({medioPago:medio, punto})});
+    E.ventas.push(venta);
+    E.asientos = await api('/api/asientos');
+    if(punto) CLIENTES = await api('/api/clientes');
+    reemplazarEncargue({...enc, estado:'entregado', ventaId:venta.id});
+    E.entregandoEncargue = '';
+  }catch(e){ E.avisoEncargue = e.message; }
   render();
 }
-function cancelarEncargue(id, motivo){
-  const enc = E.encargues.find(e=>e.id===id);
-  if(enc){ enc.estado='cancelado'; enc.motivo=motivo; }
-  E.encargueCancelando = '';
+async function cancelarEncargue(id, motivo){
+  try{
+    reemplazarEncargue(await api('/api/encargues/'+encodeURIComponent(id)+'/cancelar', {method:'POST', body:JSON.stringify({motivo})}));
+    E.encargueCancelando = '';
+  }catch(e){ E.avisoEncargue = e.message; }
   render();
 }
 function agregarRenglon(){
@@ -2016,71 +1967,46 @@ function agregarRenglon(){
   else E.ventaEnCurso.renglones.push({producto:id,cantidad:n,precio:p.precios[c.lista],lista:c.lista});
   render();
 }
-/* en el equipo real esto es navigator.geolocation; acá se simula sobre la zona */
-function capturarPunto(c){
-  /* un pin aproximado (de Maps, cargado al alta) SÍ se deja pisar por el real:
-     lo que se aprende entregando siempre es más preciso que lo geocodificado. */
-  if(c.punto && !c.punto.aproximado) return c.punto;
+/* en el equipo real esto sería navigator.geolocation; acá se simula sobre la
+   zona. No muta el cliente local — sólo arma el punto a mandarle al
+   servidor, que decide si corresponde guardarlo (invariante de DZ-MOD-01:
+   un pin real nunca se pisa con uno geocodificado, ver puedeActualizarPunto
+   en app/core/clientes.js). Tras una venta con punto nuevo se recarga
+   CLIENTES desde la API para reflejar lo que el servidor aceptó. */
+function puntoSimulado(c){
+  if(c.punto && !c.punto.aproximado) return null;
   const base = {'Bernal':[-34.7075,-58.2830],'Quilmes O.':[-34.7415,-58.2970],'Quilmes C.':[-34.7210,-58.2600],'Wilde':[-34.6990,-58.3175]}[c.zona]||[-34.72,-58.28];
-  c.punto = {lat:+(base[0]+(c.orden*0.0013)).toFixed(4), lng:+(base[1]-(c.orden*0.0011)).toFixed(4), nuevo:true};
-  return c.punto;
+  return {lat:+(base[0]+(c.orden*0.0013)).toFixed(4), lng:+(base[1]-(c.orden*0.0011)).toFixed(4)};
 }
-function confirmarVenta(){
+async function confirmarVenta(){
   const v = E.ventaEnCurso, c = cli(v.cliente);
   if(!v.renglones.length) return;
-  capturarPunto(c);
+  const punto = puntoSimulado(c);
   const medio = $('#sel-medio').value;
-  const total = v.renglones.reduce((t,r)=>t+r.cantidad*r.precio,0);
-  const id = DISPOSITIVO+'-V'+(E.ventas.length+1);
-  v.renglones.forEach(r=>asentar('venta',CAM,'cliente',r.producto,r.cantidad,{ref:id}));
-  E.ventas.push({id,cliente:c.id,repartidor:REPARTIDOR,renglones:v.renglones,total,medio,remito:id,punto:c.punto});
-  E.ventaEnCurso = {cliente:'',renglones:[]};
-  ir('hoy');
+  try{
+    const venta = await api('/api/ventas', {method:'POST', body:JSON.stringify({cliente:c.id, renglones:v.renglones, medioPago:medio, punto})});
+    E.ventas.push(venta);
+    E.asientos = await api('/api/asientos');
+    if(punto) CLIENTES = await api('/api/clientes');
+    E.ventaEnCurso = {cliente:'',renglones:[]};
+    ir('hoy');
+  }catch(e){ E.aviso = e.message; render(); }
 }
-function marcarNoVenta(id,motivo){
-  E.noVentas.push({cliente:id,motivo,fecha:new Date().toISOString()});
-  E.noVentaAbierta='';
+async function marcarNoVenta(id,motivo){
+  try{
+    E.noVentas.push(await api('/api/no-ventas', {method:'POST', body:JSON.stringify({cliente:id, motivo})}));
+    E.noVentaAbierta='';
+  }catch(e){ E.aviso = e.message; }
   render();
 }
-function remarcar(){
+async function remarcar(){
   const pct = +$('#rem-pct').value, rubro = $('#rem-rubro').value;
-  PRODUCTOS.filter(p=>!rubro||p.rubro===rubro).forEach(p=>{
-    LISTAS.forEach(l=>p.precios[l.id] = Math.round(p.precios[l.id]*(1+pct/100)/10)*10);
-  });
+  try{
+    await api('/api/productos/remarcar', {method:'POST', body:JSON.stringify({pct, rubro})});
+    PRODUCTOS = await api('/api/productos');
+  }catch(e){ E.aviso = e.message; }
   render();
 }
-function simular(){
-  if(!E.cargaConfirmada){
-    PRODUCTOS.forEach(p=>{ const n=Math.min(sugerido(p.id),stock(p.id,'deposito')); if(n>0) asentar('carga','deposito',CAM,p.id,n,{ref:'carga-sim'}); });
-    E.cargaConfirmada = true;
-  }
-  const ruta = rutaDelDia();
-  ruta.forEach((c,i)=>{
-    if(estadoParada(c.id)!=='pendiente') return;
-    if(i===ruta.length-1){ E.noVentas.push({cliente:c.id,motivo:'precio',fecha:new Date().toISOString()}); return; }
-    const h = HISTORICO[c.id]||{};
-    const renglones = Object.keys(h).map(pid=>{
-      const cant = Math.min(h[pid], stock(pid,CAM));
-      return cant>0 ? {producto:pid,cantidad:cant,precio:prod(pid).precios[c.lista],lista:c.lista} : null;
-    }).filter(Boolean);
-    if(!renglones.length) return;
-    capturarPunto(c);
-    const total = renglones.reduce((t,r)=>t+r.cantidad*r.precio,0);
-    const id = DISPOSITIVO+'-V'+(E.ventas.length+1);
-    renglones.forEach(r=>asentar('venta',CAM,'cliente',r.producto,r.cantidad,{ref:id}));
-    E.ventas.push({id,cliente:c.id,repartidor:REPARTIDOR,renglones,total,medio:['efectivo','transferencia','qr'][i%3],remito:id,punto:c.punto});
-  });
-  /* el conteo de vuelta: cuadra en todo menos en dos productos — que es lo que pasa de verdad */
-  PRODUCTOS.forEach(p=>{ const q=stock(p.id,CAM); if(q>0) E.contado[p.id]=q; });
-  if(E.contado['COLA225']!==undefined) E.contado['COLA225'] = Math.max(0,E.contado['COLA225']-2);
-  if(E.contado['GALL400']!==undefined) E.contado['GALL400'] = Math.max(0,E.contado['GALL400']-1);
-  const cj = cajaCalculada();
-  E.caja.efectivo = String(cj.efectivo - 500);
-  E.caja.transferencia = String(cj.transferencia);
-  E.caja.qr = String(cj.qr);
-  ir('cierre');
-}
-
 /* ============================================================
    render
    ============================================================ */

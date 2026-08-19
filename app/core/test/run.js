@@ -5,6 +5,12 @@ import './totp.test.js';
 import './autorizacion.test.js';
 import './autenticacion.test.js';
 import './usuarios.test.js';
+import './libro.test.js';
+import './ventas.test.js';
+import './catalogo.test.js';
+import './clientes.test.js';
+import './zonas.test.js';
+import './encargues.test.js';
 
 void suites;
 await correr();

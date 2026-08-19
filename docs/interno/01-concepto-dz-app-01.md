@@ -240,10 +240,11 @@ el celular podía abrir las herramientas del navegador y verlo igual, y así que
 documentado durante todo F0. Dejó de ser así con `DZ-SEG-01`: el rol viene de una sesión
 autenticada contra un servidor real (Cloudflare Worker + D1), y un REPARTIDOR que le pida
 directamente a la API los datos de un DEPOSITO recibe `403 NO_AUTORIZADO` — probado en
-vivo, no sólo escrito. Lo que sigue sin estar conectado es **el resto del libro**: ventas,
-clientes y productos siguen siendo los datos de ejemplo de F0, en memoria del navegador,
-mientras la sincronización de ese libro no se construya — ver `DZ-SEG-01` para el detalle
-exacto de qué quedó real y qué no esa noche.
+vivo, no sólo escrito. Esa misma noche el resto del libro —ventas, clientes, productos,
+asientos, encargues, zonas— seguía en memoria del navegador, con datos de ejemplo; quedó
+conectado al servidor la noche siguiente (19 de agosto, sesión posterior), con el mismo
+principio: el servidor revalida todo de nuevo, nunca confía en lo que mande el cliente. Ver
+`DZ-MOD-01` para el modelo del libro y `DZ-SEG-01` para el detalle de auth.
 
 ## El panel de WhatsApp
 
@@ -379,8 +380,12 @@ Opciones de servidor, con su costo real:
 | **VPS propio** | ~USD 5/mes | Si se prefiere todo en casa, con el mismo `api/servidor.mjs` de Caja Zeta |
 | **Sin servidor, archivo consolidado** | USD 0 | Solo si la sincronización pasa a ser una vez por día y manual. Frágil con tres personas |
 
-**La decisión que permite postergar:** F0 corre local-first puro. La sincronización se
-agrega en F1 sin rehacer nada, porque los asientos ya están.
+**La decisión que permitió postergar, y por qué ya no aplica del todo:** F0 corría
+local-first puro para no bloquear el prototipo con una decisión de infraestructura. La
+sincronización se agregó en F1 sin rehacer nada, porque los asientos ya estaban — Cloudflare
+Workers + D1 fue la opción elegida, y desde el 19 de agosto ya corre (en local, sin cuenta
+de Cloudflare real todavía). Lo que sigue postergado de F1: remito compartible, informes,
+PWA instalable, y trabajar sin conexión.
 
 ---
 
@@ -399,8 +404,8 @@ agrega en F1 sin rehacer nada, porque los asientos ya están.
 
 | Fase | Qué entrega | Estado |
 |---|---|---|
-| **F0** | Prototipo navegable con datos de ejemplo: hoy, carga, venta, rendición, clientes, productos, cierre | En curso |
-| **F1** | Sincronización, remito compartible, informes, PWA instalable con datos reales | — |
+| **F0** | Prototipo navegable con datos de ejemplo: hoy, carga, venta, rendición, clientes, productos, cierre | Hecho |
+| **F1** | Sincronización con datos reales (auth, roles, libro completo), remito compartible, informes, PWA instalable | Sincronización hecha (`DZ-SEG-01`, `DZ-MOD-01`) — remito compartible, informes y PWA sin empezar |
 | **F2** | Envases retornables, lotes y vencimientos, carga sugerida con histórico real | — |
 
 ---

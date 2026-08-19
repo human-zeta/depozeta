@@ -187,13 +187,14 @@ cero. Copiá todo el bloque de abajo como primer mensaje de una sesión nueva.
 >
 > ### Antes de escribir la primera línea de la versión real
 >
-> Este prototipo F0 nunca salió a la calle. **Auth de verdad ya se construyó** — clave +
-> TOTP, tres roles (ADMIN/DEPOSITO/REPARTIDOR), gestión de usuarios, todo server-side y
-> probado de punta a punta (`DZ-SEG-01`) — porque el dueño del proyecto lo pidió
-> explícitamente, no por iniciativa propia de un agente; esa parte de la advertencia
-> original ya está saldada. Lo que sigue en pie es el resto: **antes de invertir en
-> sincronizar el libro operativo** (clientes, productos, ventas, asientos — hoy F0,
-> en memoria del navegador) **o cualquier otra cosa de esta lista, hacé confirmar al
+> Este prototipo F0 nunca salió a la calle. **Auth y el libro operativo completo ya se
+> construyeron** — clave + TOTP, tres roles (ADMIN/DEPOSITO/REPARTIDOR), gestión de
+> usuarios (`DZ-SEG-01`), y catálogo/cartera/asientos/ventas/encargues/zonas sincronizados
+> contra el mismo servidor (`DZ-MOD-01`) — porque el dueño del proyecto lo pidió
+> explícitamente en dos noches seguidas (19 de agosto), no por iniciativa propia de un
+> agente; esa parte de la advertencia original ya está saldada. Lo que sigue en pie es el
+> resto de esta lista — sincronización offline, remito compartible, informes, PWA,
+> integraciones opcionales: **antes de invertir en cualquiera de esas, hacé confirmar al
 > dueño del proyecto que ya probó el prototipo en una jornada real de reparto.** Si
 > todavía no lo hizo, decíselo de vuelta en vez de seguir construyendo sobre supuestos
 > sin validar — el modelo de datos, las constantes del optimizador y hasta el flujo de

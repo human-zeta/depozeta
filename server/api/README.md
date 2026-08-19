@@ -1,9 +1,12 @@
 # server/api/ — el backend real de depo zeta
 
 Cloudflare Worker + D1. Auth con clave + TOTP obligatorio, tres roles
-(ADMIN, DEPOSITO, REPARTIDOR), gestión de usuarios. Ver
-[`DZ-SEG-01`](../../docs/tecnico/04-seguridad-dz-seg-01.md) para el diseño
-completo.
+(ADMIN, DEPOSITO, REPARTIDOR), gestión de usuarios, y el libro operativo
+completo — catálogo, cartera, el libro de asientos, ventas, no-ventas,
+encargues, zonas a evitar. Ver
+[`DZ-SEG-01`](../../docs/tecnico/04-seguridad-dz-seg-01.md) para auth y
+[`DZ-MOD-01`](../../docs/tecnico/01-modelo-datos-dz-mod-01.md) para el
+modelo del libro.
 
 **Probado de punta a punta con `wrangler dev` (D1 local, sin cuenta de
 Cloudflare) — no desplegado a la nube real todavía.** Ver "Qué falta"
@@ -47,6 +50,8 @@ de que el dueño real la use.
 
 ## Las rutas
 
+**Auth y usuarios** — diseño en `DZ-SEG-01`:
+
 | Ruta | Qué hace |
 |---|---|
 | `POST /api/bootstrap` | Crea el primer ADMIN. Una sola vez, con token. |
@@ -58,6 +63,37 @@ de que el dueño real la use.
 | `POST /api/usuarios` | Alta — ADMIN crea cualquier rol menor; DEPOSITO sólo REPARTIDOR |
 | `POST /api/usuarios/:usuario/desactivar` | Corta la cuenta y sus sesiones ya abiertas, no sólo el próximo login |
 | `POST /api/usuarios/:usuario/reiniciar-totp` | Para cuando alguien pierde el teléfono |
+
+**El libro operativo** — diseño en `DZ-MOD-01`. Todas piden sesión; el costo y el margen
+sólo viajan si el rol tiene `VER_COSTOS` (DEPOSITO/ADMIN):
+
+| Ruta | Qué hace |
+|---|---|
+| `GET /api/productos` | Catálogo. Sin `costo`/`costo_actualizado` para REPARTIDOR |
+| `POST /api/productos` | Alta — DEPOSITO/ADMIN. `stockInicial` opcional genera el asiento de compra |
+| `POST /api/productos/remarcar` | Remarcación masiva `{pct, rubro}` — DEPOSITO/ADMIN |
+| `GET /api/clientes` | Cartera completa |
+| `POST /api/clientes` | Alta de cliente |
+| `POST /api/clientes/:id/punto` | Actualiza el pin — no hace nada si ya hay uno real (no aproximado) |
+| `GET /api/zonas` | Zonas a evitar |
+| `POST /api/zonas` | Alta de zona — DEPOSITO/ADMIN |
+| `POST /api/zonas/:id/eliminar` | Baja de zona — DEPOSITO/ADMIN |
+| `GET /api/asientos` | El libro completo — de acá sale `stock()` en el cliente |
+| `POST /api/carga` | Un asiento `carga` por renglón, depósito → camioneta del repartidor indicado — DEPOSITO/ADMIN |
+| `GET /api/ventas` | Todas las ventas |
+| `POST /api/ventas` | Confirma una venta — REPARTIDOR/ADMIN. El precio se resuelve acá contra el catálogo y la lista del cliente, nunca se confía en el que mande el body |
+| `GET /api/no-ventas` | Todas las no-ventas |
+| `POST /api/no-ventas` | Registra un «no compró», con motivo |
+| `GET /api/encargues` | Todos los encargues |
+| `POST /api/encargues` | Toma un encargue — REPARTIDOR/ADMIN |
+| `POST /api/encargues/:id/preparar` | El depósito lo separó — DEPOSITO/ADMIN |
+| `POST /api/encargues/:id/vincular` | Vincula un renglón especial a un producto real `{indice, productoId}` — DEPOSITO/ADMIN |
+| `POST /api/encargues/:id/entregar` | Genera la venta real — REPARTIDOR/ADMIN. Bloquea si queda algún especial sin vincular |
+| `POST /api/encargues/:id/cancelar` | Con motivo — REPARTIDOR, DEPOSITO o ADMIN |
+
+En `ventas`, `carga` y `entregar`, el repartidor que queda registrado es siempre quien está
+logueado (`sujeto.usuario`) — nunca lo que mande el body, para que nadie pueda vender "como"
+otra cuenta con el mismo permiso.
 
 Todas menos `bootstrap`/`login`/`login/totp` piden
 `Authorization: Bearer <token>`.
@@ -81,7 +117,11 @@ npx wrangler deploy
 - **Acotar el CORS** (`Access-Control-Allow-Origin: *` en `worker.mjs`) al
   dominio final una vez que exista — hoy está abierto porque el dominio
   todavía no está decidido del todo.
-- **El resto del libro** — `clientes`, `productos`, `asientos`, `ventas`,
-  `encargues`, `zonas_evitar` ya están en `schema.sql`, pero el Worker
-  todavía no expone rutas para ellos. Auth y usuarios quedaron completos
-  esta noche; sincronizar el libro operativo es el paso que sigue.
+- **Trabajar sin conexión.** Cada operación es una llamada HTTP en el
+  momento — no hay cola local ni sincronización al recuperar señal. Ver
+  la sección «Sincronización» de `DZ-MOD-01` para el porqué y qué cambiaría.
+- **Reporte consolidado de varios repartidores a la vez** — hoy cada
+  vista muestra a quien tiene la sesión abierta, no un tablero de todos
+  juntos.
+- **Actualizar el costo de un producto ya existente** — hoy sólo se fija
+  al dar de alta.

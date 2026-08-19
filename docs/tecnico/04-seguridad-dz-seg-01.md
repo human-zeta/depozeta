@@ -176,16 +176,20 @@ Lo que **no** se probó: contra una cuenta de Cloudflare real desplegada
 
 ## Lo que no está resuelto
 
-- **El resto del libro sigue sin backend.** Auth y usuarios son reales
-  esta noche; `clientes`, `productos`, `asientos`, `ventas`, `encargues`
-  siguen en memoria del navegador, como en F0 — el esquema de D1 ya los
-  tiene (`server/api/schema.sql`), pero el Worker todavía no expone rutas
-  para ellos.
-- **El cliente (`app/index.html`) necesita su propia pantalla de login**
-  contra esta API, reemplazando el botón de "cambiar perfil" que hoy es
-  puro adorno de interfaz — ver la sección correspondiente en
-  `DZ-APP-01`.
 - **CORS abierto** (`*`) hasta que el dominio final esté decidido.
 - **Sin recuperación de clave.** Si alguien la pierde, hoy no hay flujo
   de reseteo — lo resuelve un ADMIN o DEPOSITO dándole de baja y de alta
   de nuevo. Un reseteo propio es trabajo de otra noche.
+- **Sin despliegue real.** Todo lo de este documento se probó con
+  `wrangler dev --local` — nada corrió todavía contra una cuenta de
+  Cloudflare de verdad.
+
+**Ya resuelto, no era cierto en la primera versión de este documento:**
+el resto del libro (`clientes`, `productos`, `asientos`, `ventas`,
+`encargues`, `zonas`) siguió sin backend la primera noche — quedó
+conectado la noche siguiente (19 de agosto, misma fecha, sesión
+posterior), con el mismo patrón de acá: motores puros en `app/core/`,
+repositorios D1, rutas en `worker.mjs`, autorización por rol en cada una.
+Diseño completo en `DZ-MOD-01`. El cliente (`app/index.html`) también
+dejó de tener el botón de «cambiar perfil»: hoy es la misma pantalla de
+login de esta sección la que decide el rol.

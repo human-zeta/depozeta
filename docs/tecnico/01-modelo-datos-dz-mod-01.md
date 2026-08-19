@@ -260,20 +260,24 @@ Distinto de cero es diferencia de caja, y se anota igual.
 
 ## Perfil y permisos
 
-No hay tabla de usuarios todavía; hay un perfil por dispositivo.
+Real desde el 19 de agosto — tabla de usuarios, tres roles, servidor propio. Diseño completo
+en [`DZ-SEG-01`](04-seguridad-dz-seg-01.md); acá sólo la tabla que importa para este modelo:
 
-| Perfil | Ve | No ve |
+| Rol | Ve | No ve |
 |---|---|---|
-| `repartidor` | Su ruta, su camioneta, la cartera, los precios de venta | Costo de reposición, margen, remarcación, la carga de otros |
-| `deposito` | Todo: catálogo, costos, márgenes, carga, cierre por repartidor | — |
+| `REPARTIDOR` | Su ruta, su camioneta, la cartera, los precios de venta | Costo de reposición, margen, remarcación, la carga de otros |
+| `DEPOSITO` | Todo: catálogo, costos, márgenes, carga, cierre por repartidor | — |
+| `ADMIN` | Todo lo de `DEPOSITO`, más gestión de usuarios | — |
 
 **El dato que se protege es el margen**, no la operación. Un costo de reposición contado en
 el mostrador de un cliente vuelve como negociación de precio.
 
-**Lo que hoy no es cierto:** mientras el estado viva en el dispositivo, el perfil filtra la
-interfaz y nada más. Cualquiera con el celular abre las herramientas del navegador y ve el
-objeto completo. **La separación real es una propiedad del servidor de F1** — que responde
-según quién pregunta— y hasta entonces se documenta como lo que es.
+**Ya no es una promesa, es un chequeo en cada pedido:** `server/api/worker.mjs` arma la
+respuesta de `GET /api/productos` distinto según el rol de quien pregunta —
+`productoPublico(p, sujeto)` saca `costo` y `costoActualizado` si el sujeto no tiene
+`VER_COSTOS`— y cada ruta que muta algo pasa primero por `exigir(sujeto, ACCIONES.X)`. Un
+`REPARTIDOR` que le pida el catálogo completo a la API no recibe una pantalla distinta con
+los mismos datos abajo: recibe una respuesta JSON sin esos campos.
 
 ---
 
@@ -349,21 +353,42 @@ con criterio, no una ruta verificada como segura.
 
 ## Sincronización
 
-**Apilar, no fusionar.** El `id` de cada asiento lleva el dispositivo que lo generó, así
-que dos celulares nunca colisionan. El servidor guarda el log; cada dispositivo pide los
-asientos posteriores al último que tiene.
+**Apilar, no fusionar** sigue siendo el principio — pero la implementación real (19 de
+agosto, `server/api/`) tomó un atajo honesto frente a lo que este documento describía
+originalmente: **hoy no hay modo offline.** Cada carga, venta o encargue es una llamada
+HTTP en el momento, contra `server/api/worker.mjs`, que persiste en D1. Como siempre hay
+conexión al momento de generar un asiento derivado de una venta o una carga, es el
+**servidor** quien le pone el id (`srv-{uuid}`), no el dispositivo — sigue siendo único,
+sigue sin coordinación entre repartidores, pero ya no es `{dispositivo}-{contador}` salvo
+en los datos que arma el propio cliente antes de existir en el servidor (los tests en
+Node, que no tocan HTTP). El día que se necesite de verdad vender sin señal y sincronizar
+después, ese es el cambio real que hay que hacer: volver a que el dispositivo numere.
 
 No hay resolución de conflictos porque no hay edición concurrente: cada repartidor toca
-su propia camioneta y el depósito toca la suya. **El único registro compartido es el
-catálogo de productos y precios, y se escribe desde un solo lugar.**
+su propia camioneta (el servidor arma `camioneta:{sujeto.usuario}` desde la sesión, nunca
+desde lo que mande el body — ver DZ-SEG-01) y el depósito toca la suya. **El único
+registro compartido es el catálogo de productos y precios**, y hoy lo escribe cualquier
+cuenta con `GESTIONAR_PRODUCTOS` (DEPOSITO o ADMIN) — sigue siendo un solo lugar, ya no es
+"el dispositivo", es "el rol".
 
 ---
 
 ## Lo que no está resuelto
 
+- **Trabajar sin conexión.** Ver el párrafo de arriba — es la simplificación más grande
+  que se tomó al construir `server/api/`, a cambio de mucha menos complejidad. Repartir
+  sin señal y sincronizar al volver a tener wifi en el depósito no está soportado.
+- **Reporte consolidado de varios repartidores a la vez.** Cada vista de cierre/carga
+  muestra a quien tiene la sesión abierta; agregar «todos los repartidores de hoy» en una
+  sola pantalla es un endpoint que todavía no se escribió.
+- **Actualizar el costo de un producto ya existente.** Hoy `costo_actualizado` sólo se
+  fija al dar de alta (`armarProducto()`, `app/core/catalogo.js`) — no hay una acción para
+  refrescar el costo de un producto sin recrearlo, así que después de 30 días *todo*
+  producto entra en la alerta de "costo desactualizado" en `vProductos()`, sin forma de
+  resolverlo salvo dar de baja y cargarlo de nuevo.
 - **Numeración de remito con varios dispositivos offline.** Hoy el número es
-  `{dispositivo}-{contador}`, que es único pero no correlativo. Si hace falta correlativo
-  de verdad, se numera al sincronizar y el papel del momento lleva el id de dispositivo.
+  `{dispositivo}-{contador}` o `srv-{uuid}` según quién lo generó — único, no correlativo.
+  Si hace falta correlativo de verdad, se numera al sincronizar.
 - **Lotes y vencimiento** (F2): el asiento necesita un campo `lote` y el cálculo de stock
   se parte por lote. El modelo lo soporta, no está escrito.
 - **Envases retornables** (F2): son un saldo por cliente que va y vuelve, no un stock.

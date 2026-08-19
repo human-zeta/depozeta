@@ -40,10 +40,12 @@ export const ACCIONES = {
   AGREGAR_CLIENTE: 'AGREGAR_CLIENTE',
   VER_CIERRE_PROPIO: 'VER_CIERRE_PROPIO',
 
-  // Reparto
+  // Reparto — el mismo repartidor que toma un encargue de a pie es quien lo
+  // trae en su camioneta y lo entrega en la calle.
   VENDER: 'VENDER',
   REGISTRAR_NO_VENTA: 'REGISTRAR_NO_VENTA',
   TOMAR_ENCARGUE: 'TOMAR_ENCARGUE',
+  ENTREGAR_ENCARGUE: 'ENTREGAR_ENCARGUE',
 
   // Depósito
   CONFIRMAR_CARGA: 'CONFIRMAR_CARGA',
@@ -51,7 +53,7 @@ export const ACCIONES = {
   GESTIONAR_PRODUCTOS: 'GESTIONAR_PRODUCTOS',
   REMARCAR: 'REMARCAR',
   GESTIONAR_ZONAS: 'GESTIONAR_ZONAS',
-  ENTREGAR_ENCARGUE: 'ENTREGAR_ENCARGUE',
+  PREPARAR_ENCARGUE: 'PREPARAR_ENCARGUE',
   VINCULAR_ENCARGUE_ESPECIAL: 'VINCULAR_ENCARGUE_ESPECIAL',
   VER_CIERRE_CONSOLIDADO: 'VER_CIERRE_CONSOLIDADO',
 
@@ -72,7 +74,7 @@ const PERMISOS = {
   [ROLES.DEPOSITO]: new Set([
     ...COMPARTIDAS,
     A.CONFIRMAR_CARGA, A.VER_COSTOS, A.GESTIONAR_PRODUCTOS, A.REMARCAR,
-    A.GESTIONAR_ZONAS, A.ENTREGAR_ENCARGUE, A.VINCULAR_ENCARGUE_ESPECIAL,
+    A.GESTIONAR_ZONAS, A.PREPARAR_ENCARGUE, A.VINCULAR_ENCARGUE_ESPECIAL,
     A.VER_CIERRE_CONSOLIDADO,
     // Los tres, acotados a REPARTIDOR por puedeCrearUsuario()/
     // puedeGestionarUsuario() — depósito arma y mantiene su propia planta
@@ -83,7 +85,7 @@ const PERMISOS = {
 
   [ROLES.REPARTIDOR]: new Set([
     ...COMPARTIDAS,
-    A.VENDER, A.REGISTRAR_NO_VENTA, A.TOMAR_ENCARGUE,
+    A.VENDER, A.REGISTRAR_NO_VENTA, A.TOMAR_ENCARGUE, A.ENTREGAR_ENCARGUE,
     // No ve costos ni margen (VER_COSTOS): vende con la lista del cliente,
     // no con lo que salió reponer — es la separación que pidió el dueño del
     // proyecto, ahora aplicada por el servidor, no sólo por la interfaz.
