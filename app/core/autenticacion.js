@@ -46,7 +46,12 @@ export const POLITICA = Object.freeze({
   duracionMaximaHoras: 8,
   maxIntentos: 5,
   ventanaIntentosMinutos: 15,
-  iteracionesPBKDF2: 600_000,
+  // 100.000, no el estándar OWASP de 600.000: es el tope real que acepta
+  // crypto.subtle.deriveBits con PBKDF2 en el runtime de Cloudflare
+  // Workers — 600k corre bien en Node (tests, wrangler dev local) pero
+  // tira "iteration counts above 100000 are not supported" en producción
+  // real. Bug encontrado recién al desplegar, no al diseñar.
+  iteracionesPBKDF2: 100_000,
   totpReuso: 'rechazar',   // 'permitir' sólo existe para suites de prueba
   ticketMinutos: 5,
 });
@@ -98,7 +103,7 @@ export async function verificarClave(clave, guardado) {
 /* Contra un usuario inexistente se verifica igual, contra este hash de una
    clave imposible. Sin esto, el tiempo de respuesta delata qué usuarios
    existen. */
-const HASH_SENUELO = 'pbkdf2-sha256$600000$00000000000000000000000000000000$' + '0'.repeat(64);
+const HASH_SENUELO = 'pbkdf2-sha256$100000$00000000000000000000000000000000$' + '0'.repeat(64);
 
 /* ─────────────────────────────── Tokens ────────────────────────────────── */
 

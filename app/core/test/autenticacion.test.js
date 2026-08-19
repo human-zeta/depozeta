@@ -54,8 +54,8 @@ describe('autenticación · política de clave', () => {
     igual(politicaClave('otra cosa bien larga', 'marcos').ok, true);
   });
 
-  test('el costo por defecto es el que acepta OWASP', () => {
-    igual(POLITICA.iteracionesPBKDF2, 600_000);
+  test('el costo por defecto es el máximo que acepta el runtime de Cloudflare Workers', () => {
+    igual(POLITICA.iteracionesPBKDF2, 100_000);
   });
 });
 
