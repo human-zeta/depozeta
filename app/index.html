@@ -1,0 +1,1840 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>depo zeta — prototipo F0</title>
+<style>
+:root{
+  --fondo:#08120E; --panel:rgba(255,255,255,.055); --borde:rgba(255,255,255,.11);
+  --verde:#2FBF71; --verde-tenue:rgba(47,191,113,.14);
+  --coral:#FF7A59; --coral-tenue:rgba(255,122,89,.14);
+  --amarillo:#F5C542; --rojo:#FF5B5B;
+  --texto:#E9F1EB; --tenue:rgba(233,241,235,.56); --mudo:rgba(233,241,235,.34);
+  --mono:"SF Mono",ui-monospace,Menlo,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",sans-serif;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{
+  background:var(--fondo); color:var(--texto); font-family:var(--sans);
+  font-size:15px; line-height:1.5; letter-spacing:-.011em;
+  min-height:100vh; overflow-x:hidden; padding-bottom:90px;
+}
+/* manchas desenfocadas del fondo */
+body::before{
+  content:""; position:fixed; inset:-25%; z-index:-1; pointer-events:none;
+  background:
+    radial-gradient(38rem 30rem at 12% 8%, rgba(47,191,113,.20), transparent 60%),
+    radial-gradient(32rem 26rem at 88% 22%, rgba(255,122,89,.13), transparent 62%),
+    radial-gradient(40rem 34rem at 60% 92%, rgba(47,191,113,.11), transparent 64%);
+  filter:blur(48px);
+}
+.wrap{max-width:940px;margin:0 auto;padding:0 16px}
+
+/* ---------- vidrio ---------- */
+.glass{
+  background:var(--panel); border:.5px solid var(--borde); border-radius:18px;
+  backdrop-filter:blur(30px) saturate(180%); -webkit-backdrop-filter:blur(30px) saturate(180%);
+  box-shadow:inset 0 .5px 0 rgba(255,255,255,.13), 0 10px 34px rgba(0,0,0,.34);
+}
+.eyebrow{
+  font-family:var(--mono); font-size:10px; letter-spacing:.19em; text-transform:uppercase;
+  color:rgba(47,191,113,.85); margin:0 0 6px;
+}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+/* ---------- encabezado ---------- */
+header{padding:26px 0 14px}
+.marca{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.marca h1{font-size:25px;font-weight:650;margin:0;letter-spacing:-.028em}
+.marca h1 span{color:var(--verde)}
+.marca .sub{font-family:var(--mono);font-size:11px;color:var(--mudo);letter-spacing:.06em}
+.jornada{display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap}
+.chip{
+  font-family:var(--mono);font-size:11px;padding:4px 10px;border-radius:999px;
+  border:.5px solid var(--borde);background:rgba(255,255,255,.05);color:var(--tenue)
+}
+.chip.on{background:var(--verde-tenue);border-color:rgba(47,191,113,.4);color:var(--verde)}
+button.chip.perfil{font-family:var(--mono);cursor:pointer;background:var(--coral-tenue);border-color:rgba(255,122,89,.4);color:var(--coral)}
+button.chip.perfil:hover{filter:brightness(1.18)}
+nav button.oculta{display:none}
+
+/* ---------- navegación ---------- */
+nav{
+  position:fixed;bottom:0;left:0;right:0;z-index:40;
+  background:rgba(8,18,14,.72); border-top:.5px solid var(--borde);
+  backdrop-filter:blur(26px) saturate(180%); -webkit-backdrop-filter:blur(26px) saturate(180%);
+  padding:8px 8px calc(8px + env(safe-area-inset-bottom));
+}
+nav .tabs{max-width:940px;margin:0 auto;display:flex;gap:4px}
+nav button{
+  flex:1;background:none;border:0;color:var(--mudo);font-family:var(--sans);
+  font-size:10.5px;letter-spacing:-.01em;padding:7px 2px;border-radius:12px;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;gap:3px;transition:.16s
+}
+nav button .ico{font-size:16px;line-height:1}
+nav button.on{color:var(--verde);background:var(--verde-tenue)}
+
+/* ---------- bloques ---------- */
+section{display:none;animation:sube .22s ease}
+section.on{display:block}
+@keyframes sube{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+h2{font-size:19px;font-weight:620;margin:0 0 3px;letter-spacing:-.02em}
+.lead{color:var(--tenue);font-size:13.5px;margin:0 0 16px;max-width:62ch}
+.card{padding:16px 17px;margin-bottom:12px}
+
+/* ---------- métricas ---------- */
+.metricas{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+.metrica{padding:13px 14px;text-align:left}
+.metrica .n{font-family:var(--mono);font-size:23px;font-weight:600;letter-spacing:-.03em;line-height:1.1}
+.metrica .r{font-size:11px;color:var(--mudo);margin-top:3px}
+.n.verde{color:var(--verde)} .n.coral{color:var(--coral)} .n.rojo{color:var(--rojo)} .n.amarillo{color:var(--amarillo)}
+
+/* ---------- paradas ---------- */
+.parada{padding:13px 15px;margin-bottom:9px;display:flex;gap:12px;align-items:flex-start}
+.parada .orden{
+  font-family:var(--mono);font-size:12px;width:26px;height:26px;flex:0 0 26px;border-radius:9px;
+  display:grid;place-items:center;background:rgba(255,255,255,.07);border:.5px solid var(--borde);color:var(--tenue)
+}
+.parada.hecha .orden{background:var(--verde-tenue);border-color:rgba(47,191,113,.4);color:var(--verde)}
+.parada.sinventa .orden{background:var(--coral-tenue);border-color:rgba(255,122,89,.4);color:var(--coral)}
+.parada .cuerpo{flex:1;min-width:0}
+.parada .nom{font-weight:590;font-size:14.5px}
+.parada .dir{font-size:12.5px;color:var(--tenue);margin-top:1px}
+.parada .ref{font-size:12px;color:var(--mudo);margin-top:2px;font-style:italic}
+.parada .acc{display:flex;gap:6px;margin-top:9px;flex-wrap:wrap}
+.badge{font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:6px;letter-spacing:.04em}
+.badge.ok{background:var(--verde-tenue);color:var(--verde)}
+.badge.no{background:var(--coral-tenue);color:var(--coral)}
+.badge.pin{background:rgba(255,255,255,.07);color:var(--mudo)}
+
+/* ---------- botones ---------- */
+button.btn{
+  font-family:var(--sans);font-size:12.5px;font-weight:520;padding:7px 13px;border-radius:10px;
+  border:.5px solid var(--borde);background:rgba(255,255,255,.06);color:var(--texto);cursor:pointer;transition:.16s
+}
+button.btn:hover{background:rgba(255,255,255,.11)}
+button.btn.pri{background:var(--verde);border-color:var(--verde);color:#04120A;font-weight:600}
+button.btn.pri:hover{filter:brightness(1.1)}
+button.btn.sec{color:var(--coral);border-color:rgba(255,122,89,.35)}
+button.btn:disabled{opacity:.35;cursor:not-allowed}
+.btn.chico{font-size:11.5px;padding:5px 10px}
+
+/* ---------- tablas ---------- */
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{
+  text-align:left;font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--mudo);font-weight:500;padding:0 8px 8px;border-bottom:.5px solid var(--borde)
+}
+td{padding:9px 8px;border-bottom:.5px solid rgba(255,255,255,.05);vertical-align:middle}
+tr:last-child td{border-bottom:0}
+td.num,th.num{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
+.tabla-scroll{overflow-x:auto;margin:0 -17px;padding:0 17px;-webkit-overflow-scrolling:touch}
+.tabla-scroll table{min-width:540px}
+.tabla-scroll td:first-child{min-width:158px}
+.tabla-scroll td.num,.tabla-scroll th.num{white-space:nowrap}
+table.compacta td.num,table.compacta th.num{white-space:nowrap}
+.total{
+  display:flex;justify-content:space-between;align-items:baseline;
+  margin-top:12px;padding-top:11px;border-top:.5px solid var(--borde)
+}
+.total span{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--mudo)}
+.total b{font-family:var(--mono);font-size:27px;font-weight:600;color:var(--verde);letter-spacing:-.03em}
+
+/* ---------- inputs ---------- */
+input,select{
+  font-family:var(--sans);font-size:13px;color:var(--texto);background:rgba(255,255,255,.06);
+  border:.5px solid var(--borde);border-radius:9px;padding:7px 10px;outline:none;width:100%
+}
+input:focus,select:focus{border-color:rgba(47,191,113,.5);background:rgba(47,191,113,.07)}
+input.num{font-family:var(--mono);text-align:right;width:74px;padding:5px 8px}
+select option{background:#0d1a14}
+.campo{margin-bottom:11px}
+.campo label{display:block;font-family:var(--mono);font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--mudo);margin-bottom:4px}
+.fila{display:flex;gap:9px;flex-wrap:wrap;align-items:flex-end}
+
+/* ---------- misceláneas ---------- */
+.nota{
+  font-size:12.5px;color:var(--tenue);border-left:2px solid rgba(47,191,113,.42);
+  padding:2px 0 2px 11px;margin:13px 0
+}
+.nota b{color:var(--texto);font-weight:600}
+.dif{font-family:var(--mono);font-weight:600}
+.dif.cero{color:var(--verde)} .dif.mal{color:var(--rojo)}
+.vacio{color:var(--mudo);font-size:13px;text-align:center;padding:26px 10px}
+.pie{color:var(--mudo);font-size:11.5px;padding:22px 0 8px;line-height:1.6;border-top:.5px solid var(--borde);margin-top:26px}
+.pie code{font-family:var(--mono);font-size:11px;color:var(--tenue)}
+
+/* ---------- panel WhatsApp: desplegable de un costado, no bloquea el resto ---------- */
+.wa-tab{
+  position:fixed; top:110px; right:0; z-index:56;
+  background:var(--verde); color:#04120A; border:none; border-radius:12px 0 0 12px;
+  padding:11px 7px; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:4px;
+  box-shadow:-3px 3px 16px rgba(0,0,0,.38); transition:filter .15s;
+}
+.wa-tab:hover{filter:brightness(1.08)}
+.wa-tab .wa-ico{font-size:16px;line-height:1}
+.wa-tab .wa-txt{writing-mode:vertical-rl;letter-spacing:.05em;font-size:10px;font-weight:700}
+.wa-drawer{
+  position:fixed; top:0; right:0; height:100%; width:min(370px,92vw); z-index:55;
+  background:rgba(7,16,12,.94); backdrop-filter:blur(26px) saturate(180%); -webkit-backdrop-filter:blur(26px) saturate(180%);
+  border-left:.5px solid var(--borde); box-shadow:-12px 0 38px rgba(0,0,0,.42);
+  transform:translateX(100%); transition:transform .24s ease; padding:18px 16px calc(18px + env(safe-area-inset-bottom));
+  overflow-y:auto;
+}
+.wa-drawer.on{transform:translateX(0)}
+.wa-cab{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px}
+
+/* ---------- panel ---------- */
+#panel{position:fixed;inset:0;z-index:60;background:rgba(4,9,7,.72);backdrop-filter:blur(8px);
+  display:flex;align-items:center;justify-content:center;padding:14px}
+#panel[hidden]{display:none}
+.panel-caja{width:100%;max-width:760px;max-height:88vh;overflow:auto;padding:16px 17px}
+.panel-cab{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px}
+.panel-cab .eyebrow{margin:0}
+#mapa{width:100%;height:0;border-radius:14px;overflow:hidden}
+#mapa.on{height:min(52vh,420px)}
+
+/* ---------- impresión ---------- */
+@media print{
+  /* la trampa de la casa: los colores escritos a mano desaparecen sobre fondo blanco.
+     Se redefinen las variables, así también se arreglan los estilos inline. */
+  :root{
+    --fondo:#fff; --panel:#fff; --borde:#c9cfca;
+    --texto:#111; --tenue:#444; --mudo:#666;
+    --verde:#146b3f; --verde-tenue:#e6f4ec;
+    --coral:#b5471f; --coral-tenue:#fbeae4;
+    --amarillo:#8a6a00; --rojo:#b81f1f;
+  }
+  body{background:#fff;color:#111;padding:0}
+  body::before{display:none}
+  nav{display:none}
+  .glass{background:#fff;border:1px solid var(--borde);box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none}
+  .eyebrow{color:#146b3f}          /* explícito: el original es rgba(), no variable */
+  .marca h1 span{color:#146b3f}
+  .chip,.badge{border:1px solid var(--borde);color:#444;background:#fff}
+  input,select{background:#fff;border:1px solid var(--borde);color:#111}
+  .total b{color:#146b3f}
+  section{display:block!important;page-break-inside:avoid;margin-bottom:22px}
+  .tabla-scroll{overflow:visible;margin:0;padding:0}
+  .tabla-scroll table{min-width:0}
+  button{display:none}
+  a[href^="http"]::after{content:"";}
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div class="marca">
+      <h1>depo <span>zeta</span></h1>
+      <span class="sub">DZ-APP-01 · PROTOTIPO F0</span>
+    </div>
+    <div class="jornada">
+      <span class="chip on" id="chip-fecha">—</span>
+      <span class="chip" id="chip-repartidor">—</span>
+      <span class="chip" id="chip-estado">jornada abierta</span>
+      <button class="chip perfil" id="chip-perfil" onclick="cambiarPerfil()">—</button>
+    </div>
+  </header>
+
+  <section id="v-hoy" class="on"></section>
+  <section id="v-carga"></section>
+  <section id="v-vender"></section>
+  <section id="v-encargue"></section>
+  <section id="v-cierre"></section>
+  <section id="v-clientes"></section>
+  <section id="v-productos"></section>
+
+  <div class="pie">
+    Prototipo con datos de ejemplo. El stock se calcula desde el libro de asientos
+    (<code id="pie-asientos">0</code> asientos generados en esta sesión), igual que en
+    <code>DZ-MOD-01</code>. Nada se guarda: al recargar vuelve al estado inicial.
+  </div>
+</div>
+
+<button id="wa-tab" class="wa-tab" onclick="toggleWa()"><span class="wa-ico">💬</span><span class="wa-txt">WhatsApp</span></button>
+<div id="wa-drawer" class="wa-drawer">
+  <div class="wa-cab">
+    <div class="eyebrow" style="margin:0">WhatsApp</div>
+    <button class="btn chico" onclick="toggleWa()">Cerrar</button>
+  </div>
+  <div id="wa-cuerpo"></div>
+</div>
+
+<div id="panel" hidden>
+  <div class="panel-caja glass">
+    <div class="panel-cab">
+      <div class="eyebrow" id="panel-titulo">Mapa de la ruta</div>
+      <button class="btn chico" onclick="cerrarPanel()">Cerrar</button>
+    </div>
+    <div id="panel-cuerpo"></div>
+    <div id="mapa"></div>
+  </div>
+</div>
+
+<nav><div class="tabs">
+  <button data-v="hoy" data-perfil="ambos" class="on"><span class="ico">📍</span>Hoy</button>
+  <button data-v="carga" data-perfil="deposito"><span class="ico">📦</span>Carga</button>
+  <button data-v="vender" data-perfil="repartidor"><span class="ico">🧾</span>Vender</button>
+  <button data-v="encargue" data-perfil="ambos"><span class="ico">📝</span>Encargue</button>
+  <button data-v="cierre" data-perfil="ambos"><span class="ico">⚖️</span>Cierre</button>
+  <button data-v="clientes" data-perfil="ambos"><span class="ico">👥</span>Clientes</button>
+  <button data-v="productos" data-perfil="deposito"><span class="ico">🏷️</span>Precios</button>
+</div></nav>
+
+<script>
+/* ============================================================
+   depo zeta · prototipo F0
+   El stock no se guarda: se calcula desde el libro de asientos.
+   ============================================================ */
+
+const $  = (s,c)=>(c||document).querySelector(s);
+const $$ = (s,c)=>Array.from((c||document).querySelectorAll(s));
+const peso = n => '$ ' + Math.round(n||0).toLocaleString('es-AR');
+const DIAS = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+
+/* ---------------- catálogo ---------------- */
+const LISTAS = [{id:'mayorista',nombre:'Mayorista'},{id:'minorista',nombre:'Minorista'}];
+const MOTIVOS = [['cerrado','Cerrado'],['no_estaba','No estaba'],['tiene_stock','Tiene stock'],['precio','Precio'],['otro','Otro']];
+
+const PRODUCTOS = [
+ {id:'COLA225',nombre:'Gaseosa cola 2,25 L',rubro:'Bebidas',porBulto:6, costo:1180,dias:6, precios:{mayorista:1560,minorista:1790}, deposito:180},
+ {id:'AGUA2',  nombre:'Agua mineral 2 L',   rubro:'Bebidas',porBulto:6, costo:620, dias:6, precios:{mayorista:850, minorista:990},  deposito:144},
+ {id:'CERV1',  nombre:'Cerveza 1 L retornable',rubro:'Bebidas',porBulto:12,costo:1450,dias:9,precios:{mayorista:1890,minorista:2150},deposito:120,retornable:true},
+ {id:'YERBA1', nombre:'Yerba 1 kg',         rubro:'Almacén',porBulto:10,costo:3850,dias:2, precios:{mayorista:3990,minorista:4550}, deposito:60, vence:true},
+ {id:'ACEITE9',nombre:'Aceite girasol 900 ml',rubro:'Almacén',porBulto:12,costo:1980,dias:41,precios:{mayorista:2540,minorista:2890},deposito:96, vence:true},
+ {id:'FIDEO5', nombre:'Fideos guiseros 500 g',rubro:'Almacén',porBulto:20,costo:690, dias:11,precios:{mayorista:920, minorista:1090},deposito:200,vence:true},
+ {id:'ARROZ1', nombre:'Arroz largo fino 1 kg',rubro:'Almacén',porBulto:10,costo:980, dias:11,precios:{mayorista:1290,minorista:1490},deposito:110,vence:true},
+ {id:'AZUCAR1',nombre:'Azúcar 1 kg',        rubro:'Almacén',porBulto:10,costo:890, dias:18,precios:{mayorista:1150,minorista:1350}, deposito:90, vence:true},
+ {id:'GALL400',nombre:'Galletitas surtidas 400 g',rubro:'Almacén',porBulto:12,costo:780,dias:14,precios:{mayorista:1020,minorista:1190},deposito:108,vence:true},
+ {id:'LAVA1',  nombre:'Lavandina 1 L',      rubro:'Limpieza',porBulto:12,costo:540, dias:23,precios:{mayorista:720, minorista:850},  deposito:132},
+ {id:'DETER75',nombre:'Detergente 750 ml',  rubro:'Limpieza',porBulto:12,costo:890, dias:23,precios:{mayorista:1180,minorista:1390}, deposito:84},
+ {id:'PAPEL4', nombre:'Papel higiénico x4', rubro:'Limpieza',porBulto:10,costo:1420,dias:9, precios:{mayorista:1850,minorista:2150}, deposito:70},
+];
+
+/* frecuencia: 1=lunes … 6=sábado */
+const CLIENTES = [
+ {id:'C01',recibe:[[7.5,13],[16,19]],nombre:'Kiosco La Esquina',contacto:'Marisa',tel:'11 5512-8840',dir:'Zapiola 1240, Bernal',ref:'La esquina, toldo rojo',zona:'Bernal',orden:1,lista:'mayorista',dias:[1,4],punto:{lat:-34.7085,lng:-58.2812},ultima:4,notas:'Cobra Marisa, el marido no toca la caja.'},
+ {id:'C02',recibe:[[8,13],[16,19]],nombre:'Almacén Doña Rosa',contacto:'Rosa',tel:'11 5533-1129',dir:'Belgrano 3355, Bernal',ref:'Rejas verdes al lado del kiosco',zona:'Bernal',orden:2,lista:'mayorista',dias:[1,4],punto:{lat:-34.7112,lng:-58.2779},ultima:4,notas:'Cierra al mediodía.'},
+ {id:'C03',recibe:[[8,18]],nombre:'Despensa El Ombú',contacto:'Néstor',tel:'11 5588-0034',dir:'Av. Calchaquí 2870, Quilmes Oeste',ref:'Frente a la parada del 98',zona:'Quilmes O.',orden:3,lista:'mayorista',dias:[1,4],punto:{lat:-34.7401,lng:-58.2955},ultima:4,notas:''},
+ {id:'C04',recibe:[[9,17]],nombre:'Autoservicio Hnos. Paz',contacto:'Julián',tel:'11 5544-7781',dir:'Los Andes 445, Quilmes Oeste',ref:'Portón gris, se descarga por atrás',zona:'Quilmes O.',orden:4,lista:'mayorista',dias:[1,4],punto:{lat:-34.7433,lng:-58.2988},ultima:11,notas:'Pide remito con detalle siempre.'},
+
+ {id:'C05',recibe:[[8,19]],nombre:'Fiambrería Don Ángel',contacto:'Ángel',tel:'11 5567-2213',dir:'Mitre 890, Wilde',ref:'Al lado de la farmacia',zona:'Wilde',orden:1,lista:'mayorista',dias:[2,5],punto:{lat:-34.6975,lng:-58.3182},ultima:3,notas:''},
+ {id:'C06',recibe:[[8,18]],nombre:'Minimercado Sur',contacto:'Wei',tel:'11 5590-4477',dir:'Las Flores 122, Wilde',ref:'',zona:'Wilde',orden:2,lista:'mayorista',dias:[2,5],punto:{lat:-34.7002,lng:-58.3210},ultima:3,notas:'Descarga rápida, tienen changuito.'},
+ {id:'C07',recibe:[[0,24]],nombre:'Kiosco 24hs Mitre',contacto:'Damián',tel:'11 5501-9982',dir:'Mitre 1450, Quilmes Centro',ref:'Casa de rejas negras, timbre del fondo',zona:'Quilmes C.',orden:3,lista:'minorista',dias:[2,5],punto:null,ultima:null,notas:'Cliente nuevo. Todavía sin punto: se navega por dirección.'},
+ {id:'C08',recibe:[[11,23]],nombre:'Bar El Refugio',contacto:'Sabrina',tel:'11 5522-6610',dir:'Alsina 720, Bernal',ref:'Persiana azul',zona:'Bernal',orden:4,lista:'minorista',dias:[2,5],punto:{lat:-34.7059,lng:-58.2841},ultima:10,notas:'Solo cerveza y gaseosa.'},
+
+ {id:'C09',recibe:[[6,11]],nombre:'Panadería Las Tres',contacto:'Elsa',tel:'11 5577-3320',dir:'Rivadavia 560, Quilmes',ref:'',zona:'Quilmes C.',orden:3,lista:'mayorista',dias:[3,6],punto:{lat:-34.7218,lng:-58.2664},ultima:5,notas:'Cambió el horario: ahora cierra 11. La ruta de siempre le llega tarde.'},
+ {id:'C10',recibe:[[8,18]],nombre:'Almacén La Tranquera',contacto:'Beto',tel:'11 5539-8812',dir:'Sarmiento 2210, Bernal',ref:'Después del lomo de burro',zona:'Bernal',orden:2,lista:'mayorista',dias:[3,6],punto:{lat:-34.7091,lng:-58.2903},ultima:5,notas:''},
+ {id:'C11',recibe:[[10,15],[19,23]],nombre:'Rotisería El Fogón',contacto:'Carlos',tel:'11 5566-1140',dir:'9 de Julio 330, Wilde',ref:'',zona:'Wilde',orden:3,lista:'mayorista',dias:[3,6],punto:{lat:-34.6991,lng:-58.3149},ultima:19,notas:'Bajó el consumo. Ver por qué. Cierra la tarde.'},
+ {id:'C12',recibe:[[18,24]],nombre:'Drugstore Nocturno',contacto:'Fede',tel:'11 5511-2299',dir:'Av. San Martín 1180, Bernal',ref:'',zona:'Bernal',orden:9,lista:'minorista',dias:[],punto:{lat:-34.7043,lng:-58.2795},ultima:27,notas:'Solo por pedido. Abre de noche.'},
+
+ {id:'C13',recibe:[[7,13],[16,20]],nombre:'Kiosco El Trébol',contacto:'Nadia',tel:'11 5510-1000',dir:'Espora 1130, Bernal',ref:'Pegado al lavadero',zona:'Bernal',orden:5,lista:'mayorista',dias:[1, 4],punto:{lat:-34.7215,lng:-58.2954},ultima:4,notas:''},
+ {id:'C14',recibe:[[8,18]],nombre:'Almacén San Cayetano',contacto:'Pedro',tel:'11 5511-1137',dir:'Rodríguez Peña 2240, Bernal',ref:'',zona:'Bernal',orden:6,lista:'mayorista',dias:[1, 4],punto:{lat:-34.7019,lng:-58.2799},ultima:4,notas:'Paga siempre con transferencia.'},
+ {id:'C15',recibe:[[6,23]],nombre:'Maxikiosco La Nueva',contacto:'Vero',tel:'11 5512-1274',dir:'Av. San Martín 2015, Bernal',ref:'',zona:'Bernal',orden:7,lista:'minorista',dias:[1, 4],punto:{lat:-34.7131,lng:-58.2923},ultima:4,notas:''},
+ {id:'C16',recibe:[[6,13]],nombre:'Verdulería Los Pinos',contacto:'Kim',tel:'11 5513-1411',dir:'Lamadrid 1870, Quilmes Oeste',ref:'Cierra a las 13',zona:'Quilmes O.',orden:8,lista:'mayorista',dias:[1, 4],punto:{lat:-34.7275,lng:-58.2908},ultima:11,notas:'Cierra temprano, hay que llegar antes.'},
+ {id:'C17',recibe:[[9,19]],nombre:'Polirrubro El Cruce',contacto:'Silvia',tel:'11 5514-1548',dir:'Av. Vicente López 3320, Quilmes Oeste',ref:'Esquina con semáforo',zona:'Quilmes O.',orden:9,lista:'mayorista',dias:[1, 4],punto:{lat:-34.7387,lng:-58.3032},ultima:4,notas:''},
+ {id:'C18',recibe:[[8,13],[16,19]],nombre:'Despensa Santa Rita',contacto:'Hugo',tel:'11 5515-1685',dir:'Larrea 655, Quilmes Oeste',ref:'',zona:'Quilmes O.',orden:10,lista:'mayorista',dias:[1, 4],punto:{lat:-34.7499,lng:-58.2877},ultima:4,notas:''},
+ {id:'C19',recibe:[[7,13],[17,20]],nombre:'Carnicería Don Pedro',contacto:'Pedro',tel:'11 5516-1822',dir:'Los Andes 1290, Quilmes Oeste',ref:'',zona:'Quilmes O.',orden:11,lista:'mayorista',dias:[1, 4],punto:{lat:-34.7303,lng:-58.3001},ultima:18,notas:'Solo bebidas y limpieza.'},
+ {id:'C20',recibe:[[8,18]],nombre:'Almacén La Rueda',contacto:'Toni',tel:'11 5517-1959',dir:'Zapiola 2440, Bernal',ref:'',zona:'Bernal',orden:12,lista:'mayorista',dias:[1, 4],punto:{lat:-34.7075,lng:-58.2706},ultima:4,notas:''},
+ {id:'C21',recibe:[[7,20]],nombre:'Café de la Plaza',contacto:'Lucas',tel:'11 5518-2096',dir:'Belgrano 1990, Bernal',ref:'Frente a la plaza',zona:'Bernal',orden:13,lista:'minorista',dias:[1, 4],punto:{lat:-34.7187,lng:-58.2830},ultima:4,notas:''},
+ {id:'C22',recibe:[[8,18]],nombre:'Autoservicio El Progreso',contacto:'Marta',tel:'11 5519-2233',dir:'Bragado 780, Wilde',ref:'',zona:'Wilde',orden:5,lista:'mayorista',dias:[2, 5],punto:{lat:-34.6906,lng:-58.3299},ultima:3,notas:''},
+ {id:'C23',recibe:[[7,21]],nombre:'Kiosco Doña Pepa',contacto:'Pepa',tel:'11 5520-2370',dir:'Las Flores 640, Wilde',ref:'',zona:'Wilde',orden:6,lista:'minorista',dias:[2, 5],punto:{lat:-34.7018,lng:-58.3144},ultima:3,notas:''},
+ {id:'C24',recibe:[[5,11]],nombre:'Panadería La Estrella',contacto:'Ariel',tel:'11 5521-2507',dir:'Mitre 1320, Wilde',ref:'Cortina baja después de 11',zona:'Wilde',orden:7,lista:'mayorista',dias:[2, 5],punto:{lat:-34.7130,lng:-58.3268},ultima:3,notas:'Arranca a las 5. Si llegás tarde no atiende.'},
+ {id:'C25',recibe:[[8,19]],nombre:'Minimercado Villa Luján',contacto:'Nico',tel:'11 5522-2644',dir:'Alvear 2210, Quilmes',ref:'',zona:'Quilmes C.',orden:8,lista:'mayorista',dias:[2, 5],punto:{lat:-34.7154,lng:-58.2538},ultima:3,notas:''},
+ {id:'C26',recibe:[[9,18]],nombre:'Dietética El Sol',contacto:'Cecilia',tel:'11 5523-2781',dir:'Rivadavia 1180, Quilmes',ref:'',zona:'Quilmes C.',orden:9,lista:'minorista',dias:[2, 5],punto:{lat:-34.7266,lng:-58.2662},ultima:10,notas:'No lleva gaseosa.'},
+ {id:'C27',recibe:[[11,15],[19,24]],nombre:'Pizzería El Bodegón',contacto:'Raúl',tel:'11 5524-2918',dir:'Sarmiento 890, Quilmes',ref:'Persiana gris',zona:'Quilmes C.',orden:10,lista:'minorista',dias:[2, 5],punto:{lat:-34.7070,lng:-58.2507},ultima:10,notas:'Solo abre mediodía y noche.'},
+ {id:'C28',recibe:[[8,13],[16,20]],nombre:'Almacén Los Hermanos',contacto:'Tito',tel:'11 5525-3055',dir:'9 de Julio 1540, Wilde',ref:'',zona:'Wilde',orden:11,lista:'mayorista',dias:[2, 5],punto:{lat:-34.6962,lng:-58.3206},ultima:3,notas:''},
+ {id:'C29',recibe:[[7,14]],nombre:'Granja Del Valle',contacto:'Luz',tel:'11 5526-3192',dir:'Moreno 470, Quilmes',ref:'',zona:'Quilmes C.',orden:12,lista:'mayorista',dias:[2, 5],punto:{lat:-34.7294,lng:-58.2476},ultima:3,notas:''},
+ {id:'C30',recibe:[[8,18]],nombre:'Despensa El Molino',contacto:'Rubén',tel:'11 5527-3329',dir:'Sarmiento 1780, Bernal',ref:'',zona:'Bernal',orden:13,lista:'mayorista',dias:[3, 6],punto:{lat:-34.6963,lng:-58.2830},ultima:5,notas:''},
+ {id:'C31',recibe:[[7,22]],nombre:'Kiosco Mitre y Alsina',contacto:'Fer',tel:'11 5528-3466',dir:'Mitre 2050, Quilmes',ref:'',zona:'Quilmes C.',orden:5,lista:'minorista',dias:[3, 6],punto:{lat:-34.7210,lng:-58.2724},ultima:5,notas:''},
+ {id:'C32',recibe:[[8,19]],nombre:'Autoservicio La Perla',contacto:'Chen',tel:'11 5529-3603',dir:'Brown 1340, Quilmes',ref:'Descarga en la vereda',zona:'Quilmes C.',orden:6,lista:'mayorista',dias:[3, 6],punto:{lat:-34.7322,lng:-58.2569},ultima:5,notas:''},
+ {id:'C33',recibe:[[8,13]],nombre:'Forrajería El Campo',contacto:'Osvaldo',tel:'11 5530-3740',dir:'Roca 3010, Bernal',ref:'',zona:'Bernal',orden:7,lista:'mayorista',dias:[3, 6],punto:{lat:-34.6991,lng:-58.2923},ultima:26,notas:'Cierra al mediodía y no vuelve.'},
+ {id:'C34',recibe:[[10,24]],nombre:'Bar La Terminal',contacto:'Diego',tel:'11 5531-3877',dir:'Av. San Martín 690, Bernal',ref:'',zona:'Bernal',orden:8,lista:'minorista',dias:[3, 6],punto:{lat:-34.7103,lng:-58.2768},ultima:5,notas:''},
+ {id:'C35',recibe:[[8,13],[16,19]],nombre:'Almacén Doña Chela',contacto:'Chela',tel:'11 5532-4014',dir:'Ameghino 1120, Wilde',ref:'',zona:'Wilde',orden:9,lista:'mayorista',dias:[3, 6],punto:{lat:-34.7130,lng:-58.3237},ultima:5,notas:''},
+ {id:'C36',recibe:[[8,20]],nombre:'Minimercado 5 Esquinas',contacto:'Ana',tel:'11 5533-4151',dir:'Bragado 2280, Wilde',ref:'',zona:'Wilde',orden:10,lista:'mayorista',dias:[3, 6],punto:{lat:-34.6934,lng:-58.3082},ultima:5,notas:''}
+];
+
+/* histórico promedio por cliente, para la carga sugerida (unidades por visita) */
+const HISTORICO = {
+ C01:{COLA225:12,AGUA2:12,GALL400:12,PAPEL4:5},
+ C02:{FIDEO5:20,ARROZ1:10,AZUCAR1:10,ACEITE9:6,LAVA1:6},
+ C03:{COLA225:18,AGUA2:12,FIDEO5:20,YERBA1:5},
+ C04:{COLA225:24,AGUA2:18,ARROZ1:20,ACEITE9:12,PAPEL4:10,DETER75:12},
+ C05:{COLA225:12,CERV1:24,GALL400:12},
+ C06:{COLA225:18,AGUA2:12,FIDEO5:20,ARROZ1:10,LAVA1:12,PAPEL4:10},
+ C07:{COLA225:6,AGUA2:6,GALL400:6},
+ C08:{CERV1:36,COLA225:12},
+ C09:{AZUCAR1:20,ACEITE9:12,YERBA1:5},
+ C10:{FIDEO5:20,ARROZ1:10,LAVA1:12,DETER75:12,PAPEL4:10},
+ C11:{ACEITE9:12,COLA225:12,PAPEL4:5},
+ C12:{COLA225:6,CERV1:12},
+ C13:{COLA225:12,AGUA2:6,GALL400:12},
+ C14:{FIDEO5:20,ARROZ1:10,AZUCAR1:10,LAVA1:6},
+ C15:{COLA225:18,AGUA2:12,GALL400:18},
+ C16:{PAPEL4:5,LAVA1:6,DETER75:6},
+ C17:{COLA225:12,FIDEO5:20,PAPEL4:10,DETER75:12},
+ C18:{ARROZ1:10,ACEITE9:12,YERBA1:5,AZUCAR1:10},
+ C19:{COLA225:12,LAVA1:12,PAPEL4:5},
+ C20:{FIDEO5:20,YERBA1:5,ACEITE9:6,GALL400:12},
+ C21:{AGUA2:12,COLA225:12,AZUCAR1:10},
+ C22:{COLA225:24,FIDEO5:20,ARROZ1:20,PAPEL4:10,DETER75:12},
+ C23:{COLA225:12,GALL400:12,AGUA2:6},
+ C24:{AZUCAR1:20,ACEITE9:12,YERBA1:5},
+ C25:{COLA225:18,FIDEO5:20,LAVA1:12,PAPEL4:10},
+ C26:{ARROZ1:10,YERBA1:5,AZUCAR1:10},
+ C27:{COLA225:24,CERV1:24,AGUA2:12},
+ C28:{FIDEO5:20,ARROZ1:10,ACEITE9:12,AZUCAR1:10},
+ C29:{AGUA2:12,PAPEL4:5,LAVA1:6},
+ C30:{FIDEO5:20,ARROZ1:10,YERBA1:5},
+ C31:{COLA225:18,GALL400:12,AGUA2:12},
+ C32:{COLA225:24,FIDEO5:20,PAPEL4:10,DETER75:12,LAVA1:12},
+ C33:{ARROZ1:10,AZUCAR1:10},
+ C34:{CERV1:36,COLA225:12,AGUA2:6},
+ C35:{FIDEO5:20,ACEITE9:12,LAVA1:6,GALL400:12},
+ C36:{COLA225:18,ARROZ1:10,PAPEL4:10,DETER75:12}
+};
+
+/* ---------------- estado ---------------- */
+const HOY = new Date();
+const DIA_SEMANA = HOY.getDay();
+const REPARTIDOR = 'Marcos';
+const DISPOSITIVO = 'CEL-01';
+const CAM = 'camioneta:' + REPARTIDOR;
+
+const E = {
+  asientos:[], ventas:[], noVentas:[], seq:0,
+  cargaConfirmada:false,
+  contado:{},                       /* lo que el repartidor cuenta al volver */
+  caja:{efectivo:'',transferencia:'',qr:''},
+  ventaEnCurso:{cliente:'',renglones:[]},
+  noVentaAbierta:'', aviso:'',
+  ordenOptimo:[], perfil:'repartidor',
+  zonas:[], zonaSeq:0, avisoZona:'',       /* zonas a evitar: las carga el usuario, no la app */
+  avisoProducto:'', avisoCliente:'', waAbierto:false,
+  encargues:[], encargueSeq:0, avisoEncargue:'',
+  encargueEnCurso:{cliente:'', tipoActual:'catalogo', renglones:[]},
+  encargueCancelando:'', entregandoEncargue:'',
+  clienteDirAprox:null,
+  vista:'hoy',
+};
+const MOTIVOS_ENCARGUE = ['cliente desistió','no se consiguió','se venció el plazo','otro'];
+
+const prod = id => PRODUCTOS.find(p=>p.id===id);
+const cli  = id => CLIENTES.find(c=>c.id===id);
+
+/* ---------------- motor ---------------- */
+function asentar(tipo, origen, destino, producto, cantidad, extra){
+  E.asientos.push(Object.assign({
+    id: DISPOSITIVO+'-'+(++E.seq),
+    fecha:new Date().toISOString(), tipo, origen, destino, producto,
+    cantidad, autor:REPARTIDOR, dispositivo:DISPOSITIVO
+  }, extra||{}));
+}
+function stock(id, ubi){
+  let s=0;
+  for(const a of E.asientos){
+    if(a.producto!==id) continue;
+    if(a.destino===ubi) s+=a.cantidad;
+    if(a.origen ===ubi) s-=a.cantidad;
+  }
+  return s;
+}
+/* stock inicial del depósito: también entra por asiento, no por campo */
+PRODUCTOS.forEach(p=>asentar('compra','proveedor','deposito',p.id,p.deposito,{motivo:'saldo inicial'}));
+
+const rutaDelDia = () => CLIENTES.filter(c=>c.dias.includes(DIA_SEMANA))
+  .sort((a,b)=>(E.ordenOptimo.indexOf(a.id)+1||99)-(E.ordenOptimo.indexOf(b.id)+1||99) || a.orden-b.orden);
+
+/* ---------------- rutas ----------------
+   Todo local: sin API, sin key, sin costo por request. Distancia en línea recta
+   (haversine) con un factor de calle. Alcanza para ordenar 20 paradas en tres barrios;
+   no reemplaza a un ruteador con calles de una mano ni con tráfico. */
+const DEPOSITO = {lat:-34.7060,lng:-58.2870};
+const ZONAS = {'Bernal':[-34.7075,-58.2830],'Quilmes O.':[-34.7415,-58.2970],'Quilmes C.':[-34.7210,-58.2600],'Wilde':[-34.6990,-58.3175]};
+const FACTOR_CALLE = 1.32;   /* la calle nunca es la recta: grilla urbana */
+const VELOCIDAD    = 22;     /* km/h de reparto, ya con semáforos */
+const MIN_PARADA   = 12;     /* minutos por entrega */
+const SALIDA       = 8;      /* hora de salida del depósito */
+
+const puntoDe = c => c.punto || {lat:(ZONAS[c.zona]||[-34.72,-58.28])[0], lng:(ZONAS[c.zona]||[-34.72,-58.28])[1]};
+
+function km(a,b){
+  const R=6371, r=Math.PI/180;
+  const dLat=(b.lat-a.lat)*r, dLng=(b.lng-a.lng)*r;
+  const h=Math.sin(dLat/2)**2 + Math.cos(a.lat*r)*Math.cos(b.lat*r)*Math.sin(dLng/2)**2;
+  return 2*R*Math.asin(Math.sqrt(h))*FACTOR_CALLE;
+}
+/* Zonas a evitar: distancia de un punto al TRAMO (segmento), no a una parada.
+   Plano local aproximado centrado en el origen del tramo — a esta escala (unos
+   kilómetros, misma ciudad) el error frente a la esfera real es despreciable. */
+function aPlanoKm(p, ref){
+  const r=Math.PI/180;
+  return {x:(p.lng-ref.lng)*111.320*Math.cos(ref.lat*r), y:(p.lat-ref.lat)*110.574};
+}
+function distSegmentoKm(p, a, b){
+  const A={x:0,y:0}, B=aPlanoKm(b,a), P=aPlanoKm(p,a);
+  const dx=B.x-A.x, dy=B.y-A.y, largo2=dx*dx+dy*dy;
+  let t = largo2>0 ? ((P.x-A.x)*dx+(P.y-A.y)*dy)/largo2 : 0;
+  t = Math.max(0,Math.min(1,t));
+  return Math.hypot(P.x-(A.x+t*dx), P.y-(A.y+t*dy));
+}
+function largo(cls){
+  if(!cls.length) return 0;
+  let t=km(DEPOSITO,puntoDe(cls[0]));
+  for(let i=1;i<cls.length;i++) t+=km(puntoDe(cls[i-1]),puntoDe(cls[i]));
+  return t+km(puntoDe(cls[cls.length-1]),DEPOSITO);
+}
+/* Lo que separa esto de un ruteador comercial: una venta perdida por llegar cuando
+   está cerrado cuesta mucho más que unos kilómetros. La penalización lo dice en km. */
+const PENAL_PERDIDA = 25;   /* km equivalentes: lo que vale no perder una venta */
+const PENAL_HORA    = 10;   /* km equivalentes por cada hora parado esperando */
+const PENAL_ZONA    = 40;   /* a propósito, más que PENAL_PERDIDA: pesa más no ir ahí que la venta */
+function violaciones(cls){ return agenda(cls).filter(x=>!x.ok).length; }
+/* Qué zonas marcadas por el usuario toca un tramo, y si corresponde a esa hora.
+   Una zona con hastaHora es "sólo riesgosa de noche"; sin hastaHora, siempre. */
+function zonasDeTramo(a,b,hora){
+  return E.zonas.filter(z=>
+    distSegmentoKm({lat:z.lat,lng:z.lng},a,b) <= z.radio/1000 && (z.hastaHora==null || hora>=z.hastaHora));
+}
+function tramosDeRuta(cls){
+  const ag = agenda(cls);
+  let prev = DEPOSITO;
+  const tramos = cls.map((c,i)=>{
+    const destino = puntoDe(c), hora = ag[i].llega;
+    const t = {cliente:c, zonas: zonasDeTramo(prev,destino,hora)};
+    prev = destino; return t;
+  });
+  const horaVuelta = ag.length ? ag[ag.length-1].atiende : SALIDA;
+  tramos.push({cliente:null, zonas: zonasDeTramo(prev,DEPOSITO,horaVuelta)});
+  return tramos;
+}
+function costoZonas(cls){ return tramosDeRuta(cls).reduce((t,tr)=>t+tr.zonas.length*PENAL_ZONA, 0); }
+function costo(cls){
+  return agenda(cls).reduce((t,x)=> t + (x.perdida ? PENAL_PERDIDA : x.espera/60*PENAL_HORA), largo(cls)) + costoZonas(cls);
+}
+
+/* vecino más cercano y después 2-opt: con 20 paradas corre en milisegundos */
+function optimizar(cls){
+  if(cls.length<3) return cls.slice();
+  const resto=cls.slice(); const ruta=[]; let act=DEPOSITO;
+  while(resto.length){
+    let mejor=0;
+    for(let i=1;i<resto.length;i++) if(km(act,puntoDe(resto[i]))<km(act,puntoDe(resto[mejor]))) mejor=i;
+    act=puntoDe(resto[mejor]); ruta.push(resto.splice(mejor,1)[0]);
+  }
+  let mejoro=true;
+  while(mejoro){
+    mejoro=false;
+    for(let i=0;i<ruta.length-1;i++) for(let j=i+1;j<ruta.length;j++){
+      const nueva=ruta.slice(0,i).concat(ruta.slice(i,j+1).reverse(),ruta.slice(j+1));
+      if(costo(nueva)<costo(ruta)-0.001){ ruta.splice(0,ruta.length,...nueva); mejoro=true; }
+    }
+  }
+  return ruta;
+}
+/* La parte que ningún ruteador del mundo sabe: a qué hora te recibe cada cliente.
+   Y la distinción que importa — llegar antes de que abra se resuelve esperando;
+   llegar después de que cerró es la venta perdida. */
+const ESPERA_OK = 15;   /* minutos de espera que no son un problema */
+function agenda(cls){
+  let h=SALIDA, ant=DEPOSITO;
+  return cls.map(c=>{
+    h += km(ant,puntoDe(c))/VELOCIDAD;
+    const llega=h, rangos = c.recibe||[[0,24]];
+    let espera=0, perdida=false;
+    if(!rangos.some(v=>llega>=v[0]&&llega<=v[1])){
+      const abre = rangos.find(v=>v[0]>llega);
+      if(abre){ espera=(abre[0]-llega)*60; h=abre[0]; }   /* llegaste temprano: esperás */
+      else perdida=true;                                   /* ya cerró por hoy */
+    }
+    const atiende=h;
+    h += MIN_PARADA/60; ant=puntoDe(c);
+    return {cliente:c, llega, atiende, espera, perdida, ok: !perdida && espera<=ESPERA_OK};
+  });
+}
+const reloj = h => String(Math.floor(h)).padStart(2,'0')+':'+String(Math.round((h%1)*60)).padStart(2,'0');
+const wazeUrl = c => { const p=puntoDe(c); return 'https://waze.com/ul?ll='+p.lat+','+p.lng+'&navigate=yes'; };
+const estadoParada = id =>
+  E.ventas.some(v=>v.cliente===id) ? 'hecha' :
+  E.noVentas.some(n=>n.cliente===id) ? 'sinventa' : 'pendiente';
+
+function sugerido(id){
+  return rutaDelDia().reduce((t,c)=>t+((HISTORICO[c.id]||{})[id]||0),0);
+}
+function margen(p){
+  const v = p.precios.mayorista;
+  return v>0 ? (v-p.costo)/v*100 : 0;
+}
+function totalVendido(){ return E.ventas.reduce((t,v)=>t+v.total,0); }
+function cajaCalculada(){
+  const c={efectivo:0,transferencia:0,qr:0};
+  E.ventas.forEach(v=>c[v.medio]+=v.total);
+  return c;
+}
+function mapsUrl(c){
+  const destino = c.punto ? c.punto.lat+','+c.punto.lng : encodeURIComponent(c.dir);
+  return 'https://www.google.com/maps/dir/?api=1&destination='+destino;
+}
+
+/* ============================================================
+   vistas
+   ============================================================ */
+
+function vHoy(){
+  const ruta = rutaDelDia();
+  const hechas = ruta.filter(c=>estadoParada(c.id)!=='pendiente').length;
+  const cj = cajaCalculada();
+  const enCam = PRODUCTOS.reduce((t,p)=>t+stock(p.id,CAM),0);
+
+  const tramosHoy = ruta.length ? tramosDeRuta(ruta) : [];
+  const paradas = ruta.length ? ruta.map((c,i)=>{
+    const est = estadoParada(c.id);
+    const ag = agenda(ruta)[i];
+    const tramo = tramosHoy[i];
+    const venta = E.ventas.find(v=>v.cliente===c.id);
+    const nov   = E.noVentas.find(n=>n.cliente===c.id);
+    return `<div class="parada glass ${est}">
+      <div class="orden">${est==='hecha'?'✓':est==='sinventa'?'—':i+1}</div>
+      <div class="cuerpo">
+        <div class="nom">${c.nombre}</div>
+        <div class="dir">${c.dir} · ${c.zona}</div>
+        <div class="ref" style="font-style:normal;font-family:var(--mono);font-size:11px;color:${ag.ok?'var(--mudo)':'var(--rojo)'}">
+          ${est==='pendiente'?'llegás ~'+reloj(ag.llega):''}${ag.perdida?' · YA CERRÓ':ag.espera>ESPERA_OK?' · esperás '+Math.round(ag.espera)+' min':''}
+          ${c.recibe&&c.recibe[0][1]-c.recibe[0][0]<24?' · recibe '+c.recibe.map(v=>reloj(v[0])+'–'+reloj(v[1])).join(' y '):''}</div>
+        ${tramo.zonas.length?`<div class="ref" style="font-style:normal;color:var(--rojo);font-weight:600">⚠ el tramo hasta acá pasa cerca de ${tramo.zonas.map(z=>z.nombre).join(', ')}</div>`:''}
+        ${c.ref?`<div class="ref">${c.ref}</div>`:''}
+        <div class="acc">
+          ${venta?`<span class="badge ok">VENDIDO ${peso(venta.total)} · ${venta.medio}</span>`:''}
+          ${nov?`<span class="badge no">NO COMPRÓ · ${nov.motivo.replace('_',' ')}</span>`:''}
+          ${!c.punto?`<span class="badge pin">SIN PIN · se navega por dirección</span>`:''}
+          ${c.punto&&c.punto.aproximado?`<span class="badge pin">PIN APROX. · se afina en esta entrega</span>`:''}
+          ${c.punto&&c.punto.nuevo?`<span class="badge ok">PIN CAPTURADO EN LA ENTREGA</span>`:''}
+          ${tramo.zonas.length
+            ? `<a href="${wazeUrl(c)}" target="_blank" rel="noopener"><button class="btn chico pri">Waze — alertas en vivo</button></a>
+               <a href="${mapsUrl(c)}" target="_blank" rel="noopener"><button class="btn chico">Maps</button></a>`
+            : `<a href="${mapsUrl(c)}" target="_blank" rel="noopener"><button class="btn chico">Maps</button></a>
+               <a href="${wazeUrl(c)}" target="_blank" rel="noopener"><button class="btn chico">Waze</button></a>`}
+          ${est==='pendiente' && E.noVentaAbierta!==c.id?`<button class="btn chico pri" onclick="irAVender('${c.id}')">Vender</button>
+            <button class="btn chico sec" onclick="E.noVentaAbierta='${c.id}';render()">No compró</button>`:''}
+          ${E.noVentaAbierta===c.id?`<span style="font-size:11.5px;color:var(--coral);align-self:center">motivo:</span>
+            ${MOTIVOS.map(m=>`<button class="btn chico" onclick="marcarNoVenta('${c.id}','${m[0]}')">${m[1]}</button>`).join('')}
+            <button class="btn chico" onclick="E.noVentaAbierta='';render()">×</button>`:''}
+        </div>
+      </div></div>`;
+  }).join('') : `<div class="card glass vacio">Hoy es ${DIAS[DIA_SEMANA]} y no hay ruta programada.<br>Los clientes por demanda se atienden desde <b>Clientes</b>.</div>`;
+
+  return `
+  <h2>Hoy · ${DIAS[DIA_SEMANA]}</h2>
+  <p class="lead">La hoja de ruta no se carga a mano: sale de la frecuencia de cada cliente. El orden es el que se recorre de verdad, aprendido de las entregas anteriores.</p>
+
+  <div class="metricas">
+    <div class="metrica glass"><div class="n">${hechas}<span style="color:var(--mudo);font-size:15px">/${ruta.length}</span></div><div class="r">Paradas hechas</div></div>
+    <div class="metrica glass"><div class="n verde">${peso(totalVendido())}</div><div class="r">Vendido hoy</div></div>
+    <div class="metrica glass"><div class="n">${enCam}</div><div class="r">Unidades en camioneta</div></div>
+    <div class="metrica glass"><div class="n ${E.noVentas.length?'coral':''}">${E.noVentas.length}</div><div class="r">No compró</div></div>
+  </div>
+
+  ${!E.cargaConfirmada && ruta.length ? `<div class="card glass" style="border-color:rgba(255,122,89,.3)">
+    <div class="eyebrow" style="color:var(--coral)">Antes de salir</div>
+    <div style="font-size:13.5px;color:var(--tenue)">${E.perfil==='deposito'
+      ? 'La camioneta de Marcos está vacía. No se puede vender lo que no se cargó — es la invariante 4 de <span class="mono">DZ-MOD-01</span>.'
+      : 'El depósito todavía no te cargó la camioneta.'}</div>
+    <div style="margin-top:11px;display:flex;gap:7px;flex-wrap:wrap">
+      ${E.perfil==='deposito'
+        ? `<button class="btn pri" onclick="ir('carga')">Ir a cargar</button>`
+        : `<button class="btn pri" onclick="cambiarPerfil()">Entrar como depósito</button>`}
+      <button class="btn" onclick="simular()">Simular la jornada entera</button>
+    </div></div>` : ''}
+
+  ${ruta.length>2?bloqueRuta(ruta):''}
+
+  ${paradas}
+
+  ${E.ventas.length?`<div class="card glass" style="margin-top:14px">
+    <div class="eyebrow">Caja del día</div>
+    <table><tr><td>Efectivo</td><td class="num">${peso(cj.efectivo)}</td></tr>
+    <tr><td>Transferencia</td><td class="num">${peso(cj.transferencia)}</td></tr>
+    <tr><td>QR</td><td class="num">${peso(cj.qr)}</td></tr>
+    <tr><td style="font-weight:600">Total</td><td class="num" style="font-weight:600;color:var(--verde)">${peso(totalVendido())}</td></tr></table>
+  </div>`:''}`;
+}
+
+function bloqueRuta(ruta){
+  const optima   = optimizar(ruta);
+  const actualKm = largo(ruta), optimoKm = largo(optima);
+  const ahorro   = actualKm - optimoKm;
+  const ag       = agenda(ruta), agOpt = agenda(optima);
+  const fuera    = ag.filter(x=>!x.ok), fueraOpt = agOpt.filter(x=>!x.ok);
+  const perdidas = fuera.filter(x=>x.perdida), esperas = fuera.filter(x=>!x.perdida);
+  const tramosZona = tramosDeRuta(ruta).filter(t=>t.zonas.length);
+  const yaOptimo = costo(ruta) <= costo(optima) + 0.15;
+  const fin = ag.length ? ag[ag.length-1].llega + MIN_PARADA/60 : SALIDA;
+
+  return `<div class="card glass">
+    <div class="eyebrow">Recorrido</div>
+    <div class="fila" style="gap:22px;align-items:baseline">
+      <div><div class="mono" style="font-size:22px;font-weight:600">${actualKm.toFixed(1)} km</div>
+           <div style="font-size:11px;color:var(--mudo)">orden actual · última entrega ~${reloj(fin)}</div></div>
+      ${!yaOptimo?`<div><div class="mono" style="font-size:22px;font-weight:600;color:var(--verde)">${optimoKm.toFixed(1)} km</div>
+           <div style="font-size:11px;color:var(--mudo)">orden más corto</div></div>`:''}
+    </div>
+    ${yaOptimo
+      ? `<div class="nota"><b>El orden que ya usás es el más corto.</b> El optimizador no tiene nada que agregar — que es lo que pasa casi siempre en una ruta fija que se recorre hace años.</div>`
+      : `<div style="margin-top:12px;display:flex;gap:7px;flex-wrap:wrap;align-items:center">
+           <button class="btn pri" onclick="aplicarOptimo()">Reordenar — ${ahorro>0
+             ? 'ahorra '+ahorro.toFixed(1)+' km'
+             : (-ahorro).toFixed(1)+' km más, pero llegás a horario'}</button>
+           ${E.ordenOptimo.length?`<button class="btn" onclick="E.ordenOptimo=[];render()">Volver al orden de siempre</button>`:''}
+         </div>`}
+    ${perdidas.length?`<div class="nota" style="border-color:var(--rojo)">
+      <b>${perdidas.length===1?'Una parada ya cerró':perdidas.length+' paradas ya cerraron'} cuando llegás:</b>
+      ${perdidas.map(x=>x.cliente.nombre+' (llegás '+reloj(x.llega)+')').join(' · ')}. Eso es venta perdida, no demora.</div>`:''}
+    ${esperas.length?`<div class="nota" style="border-color:var(--amarillo)">
+      <b>${esperas.length===1?'Una parada te deja esperando':esperas.length+' paradas te dejan esperando'}:</b>
+      ${esperas.map(x=>x.cliente.nombre+' abre '+reloj(x.cliente.recibe.find(v=>v[0]>x.llega)[0])+' y llegás '+reloj(x.llega)+' — '+Math.round(x.espera)+' min').join(' · ')}.
+      ${fueraOpt.length<fuera.length
+        ? `<b>Reordenar lo arregla.</b> El optimizador cuenta una hora parado como ${PENAL_HORA} km y una venta perdida como ${PENAL_PERDIDA}: por eso mueve la parada antes que ahorrar nafta.`
+        : `<b>Ningún orden lo arregla</b> — no es el recorrido: salís ${reloj(SALIDA)} y la ruta entera termina ${reloj(fin)}. Conviene cambiarle el día o avisar antes.`}</div>`:''}
+    ${!fuera.length?`<div class="nota">Llegás a todas dentro del horario en que te reciben.</div>`:''}
+    ${tramosZona.length?`<div class="nota" style="border-color:var(--rojo)">
+      <b>${tramosZona.length===1?'Un tramo pasa cerca de una zona marcada':tramosZona.length+' tramos pasan cerca de zonas marcadas'}:</b>
+      ${tramosZona.map(t=>(t.cliente?t.cliente.nombre:'la vuelta al depósito')+' — '+t.zonas.map(z=>z.nombre).join(', ')).join(' · ')}.
+      Esas paradas se abren en <b>Waze primero</b>, por sus alertas en vivo.
+      <b>Esto es una estimación en línea recta, no la calle real</b> — puede marcar un tramo que en
+      los hechos la rodea, o no marcar uno que la cruza por otra cuadra. El optimizador ya lo sabe:
+      pesa ${PENAL_ZONA} km por tramo, más que perder una venta, a propósito.</div>`
+      : E.zonas.length ? `<div class="nota">Ninguna zona marcada queda cerca del recorrido de hoy.</div>` : ''}
+    <div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:12px">
+      <button class="btn" onclick="abrirMapa()">Ver en el mapa</button>
+      <button class="btn" onclick="compararGoogle()">Comparar con Google</button>
+      <button class="btn" onclick="ir('clientes')">${E.zonas.length?'Editar zonas a evitar':'Marcar una zona a evitar'}</button>
+    </div>
+    <div style="font-size:11.5px;color:var(--mudo);margin-top:12px;line-height:1.55">
+      Cálculo local: distancia en línea recta × ${FACTOR_CALLE} de factor de calle, ${VELOCIDAD} km/h, ${MIN_PARADA} min por parada.
+      Sin API, sin key, sin costo por request — y anda sin señal.
+      <b style="color:var(--tenue)">No sabe de calles de una mano, de las vías ni del tráfico del momento.</b>
+      Y ojo con el número de arriba: en esta demo el «orden de siempre» está generado, así que el ahorro se ve enorme.
+      Sobre una ruta rodada hace años el margen es mucho menor — ahí lo que rinde no son los kilómetros, son los horarios.
+    </div>
+  </div>`;
+}
+
+function vCarga(){
+  if(E.perfil!=='deposito') return `<h2>Carga</h2>
+    <div class="card glass vacio">La carga la arma el depósito.<br>
+    Vos salís con lo que te firmaron y lo rendís en <b>Cierre</b>.</div>`;
+  const ruta = rutaDelDia();
+  const filas = PRODUCTOS.map(p=>{
+    const sug = sugerido(p.id), dep = stock(p.id,'deposito'), cam = stock(p.id,CAM);
+    return `<tr>
+      <td><div style="font-weight:540">${p.nombre}</div><div class="mono" style="font-size:10.5px;color:var(--mudo)">${p.id} · bulto x${p.porBulto}</div></td>
+      <td class="num" style="color:var(--tenue)">${dep}</td>
+      <td class="num" style="color:var(--verde)">${sug}</td>
+      <td class="num">${E.cargaConfirmada
+        ? '<b class="mono">'+cam+'</b>'
+        : `<input class="num" type="number" min="0" max="${dep}" id="c-${p.id}" value="${Math.min(sug,dep)}">`}</td>
+    </tr>`;
+  }).join('');
+
+  return `
+  <h2>Carga de la camioneta</h2>
+  <p class="lead">Lo sugerido sale de los ${ruta.length} clientes de hoy por lo que compra cada uno habitualmente. Es una cuenta a la vista, no un pronóstico: se ajusta y se confirma.</p>
+
+  <div class="card glass">
+    <div class="eyebrow">Depósito → ${CAM}</div>
+    <div class="tabla-scroll"><table>
+      <thead><tr><th>Producto</th><th class="num">Depósito</th><th class="num">Sugerido</th><th class="num">${E.cargaConfirmada?'Cargado':'A cargar'}</th></tr></thead>
+      <tbody>${filas}</tbody></table></div>
+    ${E.cargaConfirmada
+      ? `<div class="nota"><b>Carga confirmada.</b> Quedaron ${E.asientos.filter(a=>a.tipo==='carga').length} asientos firmados por ${REPARTIDOR}. Para corregir se hace un contra-asiento, no se edita.</div>`
+      : `<div style="margin-top:13px;display:flex;gap:7px;flex-wrap:wrap">
+           <button class="btn pri" onclick="confirmarCarga()">Confirmar carga</button>
+           <button class="btn" onclick="simular()">Simular la jornada entera</button>
+         </div>`}
+  </div>
+
+  <div class="nota">El sugerido ataca los dos errores caros del reparto: <b>volver cargado</b>, que inmoviliza plata y castiga la mercadería, y <b>quedarse corto en la tercera parada</b>, que es una venta perdida con el cliente adelante.</div>
+
+  ${(() => {
+    const pend = E.encargues.filter(e=>(e.estado==='pendiente'||e.estado==='preparado') && ruta.some(c=>c.id===e.cliente));
+    if(!pend.length) return '';
+    return `<div class="card glass" style="border-color:rgba(245,197,66,.35)">
+      <div class="eyebrow" style="color:var(--amarillo)">Encargues de hoy</div>
+      <div style="font-size:13px;color:var(--tenue)">${pend.map(e=>{
+        const c = cli(e.cliente);
+        return (c?c.nombre:e.cliente)+': '+e.renglones.map(r=>(r.tipo==='catalogo'?prod(r.producto).nombre:r.descripcion)+' ×'+r.cantidad).join(', ');
+      }).join(' · ')}</div>
+      <div class="nota">Sumalo a lo que ya vas a cargar — el sugerido de arriba no lo cuenta todavía. Se entrega desde <b>Encargue</b>.</div>
+    </div>`;
+  })()}`;
+}
+
+function vVender(){
+  if(E.perfil!=='repartidor') return `<h2>Vender</h2>
+    <div class="card glass vacio">Vende el repartidor, en la calle.<br>
+    Desde el depósito se ve el resultado en <b>Cierre</b>.</div>`;
+  const ruta = rutaDelDia();
+  const v = E.ventaEnCurso;
+  const c = v.cliente ? cli(v.cliente) : null;
+  const lista = c ? c.lista : 'mayorista';
+  const enCam = PRODUCTOS.filter(p=>stock(p.id,CAM)>0);
+
+  if(!E.cargaConfirmada) return `<h2>Vender</h2>
+    <div class="card glass vacio">La camioneta está vacía.<br><br>
+    <button class="btn pri" onclick="ir('carga')">Cargar primero</button></div>`;
+
+  const total = v.renglones.reduce((t,r)=>t+r.cantidad*r.precio,0);
+
+  return `
+  <h2>Vender</h2>
+  <p class="lead">El precio sale de la lista del cliente y se congela en el renglón: si mañana se remarca, la venta de hoy no cambia.</p>
+
+  <div class="card glass">
+    <div class="campo"><label>Cliente</label>
+      <select onchange="E.ventaEnCurso.cliente=this.value;E.ventaEnCurso.renglones=[];render()">
+        <option value="">— elegir —</option>
+        ${ruta.filter(x=>estadoParada(x.id)==='pendiente').map(x=>`<option value="${x.id}" ${v.cliente===x.id?'selected':''}>${x.nombre} · ${x.zona}</option>`).join('')}
+        <optgroup label="Fuera de ruta">
+        ${CLIENTES.filter(x=>!x.dias.includes(DIA_SEMANA)).map(x=>`<option value="${x.id}" ${v.cliente===x.id?'selected':''}>${x.nombre} · ${x.zona}</option>`).join('')}
+        </optgroup>
+      </select></div>
+
+    ${E.aviso?`<div class="nota" style="border-color:var(--rojo);color:var(--texto)">${E.aviso}</div>`:''}
+    ${c?`<div class="chip on" style="margin-bottom:12px">lista ${lista}</div>
+    <div class="fila">
+      <div class="campo" style="flex:1;min-width:150px"><label>Producto</label>
+        <select id="sel-prod">${enCam.map(p=>`<option value="${p.id}">${p.nombre} — ${peso(p.precios[lista])} (hay ${stock(p.id,CAM)})</option>`).join('')}</select></div>
+      <div class="campo" style="width:88px"><label>Cant.</label><input class="num" type="number" id="sel-cant" value="6" min="1" style="width:100%"></div>
+      <div class="campo"><button class="btn" onclick="agregarRenglon()">Agregar</button></div>
+      <div class="campo"><button class="btn" onclick="escanearCodigo(seleccionarProductoEscaneado)" title="Escanear y agregar directo">📷</button></div>
+    </div>`:''}
+
+    ${v.renglones.length?`<table class="compacta">
+      <thead><tr><th>Renglón</th><th class="num">Cant.</th><th class="num">Subtotal</th><th></th></tr></thead>
+      <tbody>${v.renglones.map((r,i)=>`<tr>
+        <td>${prod(r.producto).nombre}<div class="mono" style="font-size:10.5px;color:var(--mudo)">${peso(r.precio)} c/u</div></td>
+        <td class="num">${r.cantidad}</td>
+        <td class="num">${peso(r.cantidad*r.precio)}</td>
+        <td class="num"><button class="btn chico" onclick="E.ventaEnCurso.renglones.splice(${i},1);render()">×</button></td>
+      </tr>`).join('')}
+      </tbody></table>
+      <div class="total"><span>Total</span><b>${peso(total)}</b></div>
+
+      <div class="fila" style="margin-top:13px">
+        <div class="campo" style="flex:1;min-width:150px"><label>Medio de pago</label>
+          <select id="sel-medio"><option value="efectivo">Efectivo</option><option value="transferencia">Transferencia</option><option value="qr">QR / Mercado Pago</option></select></div>
+        <div class="campo"><button class="btn pri" onclick="confirmarVenta()">Confirmar entrega</button></div>
+      </div>
+      <div class="nota">Al confirmar se capturan las coordenadas de la entrega. <b>Desde la segunda visita el pin es exacto</b>, sin geocodificar direcciones — que se paga por request y falla justo en las difíciles.</div>
+      `: c?'<div class="vacio">Sin renglones todavía.</div>':''}
+  </div>`;
+}
+
+/* ============================================================
+   encargue · la venta que se toma sin camioneta al lado
+   No es un asiento hasta que se entrega — recién ahí se congela
+   precio y se descuenta stock, con las mismas invariantes de
+   siempre. Hasta entonces es una intención, no una venta.
+   ============================================================ */
+function renglonProductoId(r){ return r.tipo==='catalogo' ? r.producto : r.productoVinculado; }
+function encargueListoParaEntregar(enc){
+  return enc.renglones.every(r=>{
+    const pid = renglonProductoId(r);
+    return pid && stock(pid,CAM) >= r.cantidad;
+  });
+}
+
+function vEncargue(){
+  const enc = E.encargueEnCurso;
+  const cliente = enc.cliente ? cli(enc.cliente) : null;
+  const tipo = enc.tipoActual || 'catalogo';
+
+  return `
+  <h2>Encargue</h2>
+  <p class="lead">La venta que se toma de a pie, sin la camioneta al lado — contra lo que hay en el depósito, o algo que hay que conseguir. No es una venta todavía: se convierte en una recién cuando se entrega, con el precio de ese momento.</p>
+
+  <div class="card glass">
+    <div class="eyebrow">Nuevo encargue</div>
+    <div class="campo"><label>Cliente</label>
+      <select onchange="E.encargueEnCurso.cliente=this.value;render()">
+        <option value="">— elegir —</option>
+        ${CLIENTES.slice().sort((a,b)=>a.nombre.localeCompare(b.nombre)).map(x=>`<option value="${x.id}" ${enc.cliente===x.id?'selected':''}>${x.nombre} · ${x.zona}</option>`).join('')}
+      </select></div>
+
+    ${E.avisoEncargue?`<div class="nota" style="border-color:var(--rojo)">${E.avisoEncargue}</div>`:''}
+
+    ${cliente?`
+    <div class="campo" style="width:220px"><label>Tipo de renglón</label>
+      <select onchange="E.encargueEnCurso.tipoActual=this.value;render()">
+        <option value="catalogo" ${tipo==='catalogo'?'selected':''}>Del catálogo</option>
+        <option value="especial" ${tipo==='especial'?'selected':''}>Especial — no está en el catálogo</option>
+      </select></div>
+
+    ${tipo==='catalogo'?`
+    <div class="fila">
+      <div class="campo" style="flex:1;min-width:170px"><label>Producto</label>
+        <select id="enc-prod">${PRODUCTOS.map(p=>`<option value="${p.id}">${p.nombre} — depósito: ${stock(p.id,'deposito')}</option>`).join('')}</select></div>
+      <div class="campo" style="width:88px"><label>Cant.</label><input class="num" type="number" id="enc-cant" value="6" min="1" style="width:100%"></div>
+      <div class="campo"><button class="btn" onclick="agregarRenglonEncargue()">Agregar</button></div>
+      <div class="campo"><button class="btn" onclick="escanearCodigo(v=>{ if(prod(v)){ $('#enc-prod').value=v; } else { E.avisoEncargue='No hay ningún producto con el código '+v+'. Se puede cargar en Precios, o agregarlo acá como especial.'; } render(); })">📷</button></div>
+    </div>`:`
+    <div class="fila">
+      <div class="campo" style="flex:1;min-width:170px"><label>Qué pidió</label><input id="enc-desc" placeholder="Ej: aceite de oliva marca X, 1 L"></div>
+      <div class="campo" style="width:88px"><label>Cant.</label><input class="num" type="number" id="enc-cant-esp" value="1" min="1" style="width:100%"></div>
+      <div class="campo"><button class="btn" onclick="agregarRenglonEncargue()">Agregar</button></div>
+    </div>`}
+
+    ${enc.renglones.length?`<table class="compacta">
+      <thead><tr><th>Renglón</th><th class="num">Cant.</th><th></th></tr></thead>
+      <tbody>${enc.renglones.map((r,i)=>`<tr>
+        <td>${r.tipo==='catalogo'?prod(r.producto).nombre:r.descripcion+' <span class="badge no" style="margin-left:5px">ESPECIAL</span>'}</td>
+        <td class="num">${r.cantidad}</td>
+        <td class="num"><button class="btn chico" onclick="E.encargueEnCurso.renglones.splice(${i},1);render()">×</button></td>
+      </tr>`).join('')}</tbody></table>
+      <div style="margin-top:13px"><button class="btn pri" onclick="guardarEncargue()">Guardar encargue</button></div>`
+      : '<div class="vacio">Sin renglones todavía.</div>'}
+    `:''}
+  </div>
+
+  ${bloqueEncarguesPendientes()}`;
+}
+
+function bloqueEncarguesPendientes(){
+  const activos = E.encargues.filter(e=>e.estado==='pendiente'||e.estado==='preparado');
+  const cerrados = E.encargues.filter(e=>e.estado==='entregado'||e.estado==='cancelado');
+
+  const filas = activos.map(enc=>{
+    const c = cli(enc.cliente);
+    const detalle = enc.renglones.map(r=>
+      r.tipo==='catalogo'
+        ? prod(r.producto).nombre+' ×'+r.cantidad
+        : r.descripcion+' ×'+r.cantidad+(r.productoVinculado?' (vinculado a '+prod(r.productoVinculado).nombre+')':' — sin vincular')
+    ).join(', ');
+    const sinVincular = enc.renglones.filter(r=>r.tipo==='especial'&&!r.productoVinculado);
+    const listo = encargueListoParaEntregar(enc);
+
+    return `<div class="parada glass" style="padding:13px 15px">
+      <div class="cuerpo">
+        <div class="nom">${c?c.nombre:enc.cliente} <span class="badge ${enc.estado==='preparado'?'ok':'pin'}">${enc.estado.toUpperCase()}</span></div>
+        <div class="dir">${detalle}</div>
+        ${sinVincular.length?`<div class="ref" style="font-style:normal;color:var(--coral)">
+          Falta cargar ${sinVincular.map(r=>'«'+r.descripcion+'»').join(', ')} como producto antes de poder entregarlo.
+          ${E.perfil==='deposito'?sinVincular.map(r=>{
+            const i = enc.renglones.indexOf(r);
+            return `<select style="margin-top:6px;width:auto;display:inline-block" onchange="vincularProductoEspecial('${enc.id}',${i},this.value)">
+              <option value="">Vincular «${r.descripcion}» a…</option>
+              ${PRODUCTOS.map(p=>`<option value="${p.id}">${p.nombre}</option>`).join('')}
+            </select>`;
+          }).join(''):'Se vincula desde el perfil depósito.'}
+          </div>`:''}
+        <div class="acc">
+          ${enc.estado==='pendiente'&&E.perfil==='deposito'?`<button class="btn chico" onclick="marcarPreparado('${enc.id}')">Marcar preparado</button>`:''}
+          ${listo
+            ?`<button class="btn chico pri" onclick="E.entregandoEncargue=(E.entregandoEncargue==='${enc.id}'?'':'${enc.id}');render()">Entregar</button>`
+            :`<span class="badge no">falta stock en camioneta</span>`}
+          <button class="btn chico sec" onclick="E.encargueCancelando=(E.encargueCancelando==='${enc.id}'?'':'${enc.id}');render()">Cancelar</button>
+        </div>
+        ${E.entregandoEncargue===enc.id?`<div class="fila" style="margin-top:10px">
+          <div class="campo" style="width:190px"><label>Medio de pago</label>
+            <select id="enc-medio-${enc.id}"><option value="efectivo">Efectivo</option><option value="transferencia">Transferencia</option><option value="qr">QR / Mercado Pago</option></select></div>
+          <div class="campo"><button class="btn pri" onclick="confirmarEntregaEncargue('${enc.id}')">Confirmar entrega</button></div>
+        </div>`:''}
+        ${E.encargueCancelando===enc.id?`<div class="acc" style="margin-top:8px">
+          <span style="font-size:11.5px;color:var(--coral);align-self:center">motivo:</span>
+          ${MOTIVOS_ENCARGUE.map(m=>`<button class="btn chico" onclick="cancelarEncargue('${enc.id}','${m}')">${m}</button>`).join('')}
+        </div>`:''}
+      </div></div>`;
+  }).join('');
+
+  return `<div class="card glass">
+    <div class="eyebrow">Encargues pendientes</div>
+    ${activos.length?filas:'<div class="vacio">No hay ninguno pendiente.</div>'}
+    ${cerrados.length?`<div style="margin-top:14px;font-size:11.5px;color:var(--mudo)">
+      ${cerrados.filter(e=>e.estado==='entregado').length} entregado(s) · ${cerrados.filter(e=>e.estado==='cancelado').length} cancelado(s)</div>`:''}
+  </div>`;
+}
+
+function vCierre(){
+  if(!E.cargaConfirmada) return `<h2>Cierre</h2><div class="card glass vacio">La jornada todavía no empezó.</div>`;
+
+  let difTotal=0, valorFaltante=0;
+  const filas = PRODUCTOS.map(p=>{
+    const cargado  = E.asientos.filter(a=>a.tipo==='carga'&&a.producto===p.id).reduce((t,a)=>t+a.cantidad,0);
+    if(!cargado) return '';
+    const vendido  = E.asientos.filter(a=>a.tipo==='venta'&&a.producto===p.id).reduce((t,a)=>t+a.cantidad,0);
+    const deberia  = stock(p.id,CAM);
+    const cont     = E.contado[p.id]===undefined ? '' : E.contado[p.id];
+    const dif      = cont==='' ? null : cont-deberia;
+    if(dif!==null&&dif!==0){ difTotal+=Math.abs(dif); valorFaltante+=Math.abs(dif)*p.costo; }
+    return `<tr>
+      <td>${p.nombre}</td>
+      <td class="num" style="color:var(--tenue)">${cargado}</td>
+      <td class="num" style="color:var(--tenue)">${vendido}</td>
+      <td class="num"><b>${deberia}</b></td>
+      <td class="num"><input class="num" type="number" min="0" value="${cont}" onchange="E.contado['${p.id}']=this.value===''?undefined:+this.value;render()"></td>
+      <td class="num"><span class="dif ${dif===null?'':dif===0?'cero':'mal'}">${dif===null?'—':dif>0?'+'+dif:dif}</span></td>
+    </tr>`;
+  }).join('');
+
+  const cj = cajaCalculada();
+  const cajaFilas = ['efectivo','transferencia','qr'].map(m=>{
+    const dec = E.caja[m]==='' ? null : +E.caja[m];
+    const dif = dec===null?null:dec-cj[m];
+    const nom = {efectivo:'Efectivo',transferencia:'Transferencia',qr:'QR / Mercado Pago'}[m];
+    return `<tr><td>${nom}</td>
+      <td class="num" style="color:var(--tenue)">${peso(cj[m])}</td>
+      <td class="num"><input class="num" type="number" style="width:96px" value="${E.caja[m]}" onchange="E.caja['${m}']=this.value;render()"></td>
+      <td class="num"><span class="dif ${dif===null?'':dif===0?'cero':'mal'}">${dif===null?'—':dif>0?'+'+peso(dif):dif<0?'−'+peso(-dif):'0'}</span></td></tr>`;
+  }).join('');
+
+  const listo = Object.keys(E.contado).length>0;
+  return `
+  <h2>Cierre de la jornada</h2>
+  <p class="lead">El cierre no es un botón: es una resta que alguien firma. Se puede cerrar con faltante; no se puede cerrar callándolo.</p>
+
+  <div class="card glass">
+    <div class="eyebrow">Control de mercadería</div>
+    <div class="tabla-scroll"><table>
+      <thead><tr><th>Producto</th><th class="num">Cargó</th><th class="num">Vendió</th><th class="num">Debería</th><th class="num">Contó</th><th class="num">Dif.</th></tr></thead>
+      <tbody>${filas||'<tr><td colspan="6" class="vacio">Sin carga.</td></tr>'}</tbody></table></div>
+    ${listo?(difTotal
+      ? `<div class="nota" style="border-color:var(--rojo)"><b>Faltan ${difTotal} unidades — ${peso(valorFaltante)} a costo de reposición.</b> Para cerrar hay que asentar una merma o un ajuste con motivo. La mayoría de las veces aparece un error de carga, no un robo; pero sin el número no aparece ninguno de los dos.</div>`
+      : `<div class="nota"><b>Cuadra.</b> Carga − ventas − devoluciones = 0.</div>`):''}
+  </div>
+
+  <div class="card glass">
+    <div class="eyebrow">Control de caja</div>
+    <div class="tabla-scroll"><table>
+      <thead><tr><th>Medio</th><th class="num">Ventas</th><th class="num">Declarado</th><th class="num">Dif.</th></tr></thead>
+      <tbody>${cajaFilas}</tbody></table></div>
+  </div>
+
+  ${E.perfil==='deposito'?`<div class="card glass">
+    <div class="eyebrow">Por repartidor</div>
+    <div class="tabla-scroll"><table>
+      <thead><tr><th>Repartidor</th><th class="num">Vendido</th><th class="num">Paradas</th><th class="num">Faltante</th></tr></thead>
+      <tbody><tr><td>${REPARTIDOR}<div class="mono" style="font-size:10.5px;color:var(--mudo)">${DISPOSITIVO}</div></td>
+        <td class="num">${peso(totalVendido())}</td>
+        <td class="num">${E.ventas.length}/${rutaDelDia().length}</td>
+        <td class="num"><span class="dif ${difTotal?'mal':'cero'}">${difTotal?'−'+peso(valorFaltante):'0'}</span></td></tr></tbody></table></div>
+    <div class="nota">Con las tres camionetas, esta tabla es el tablero del día. <b>El faltante acumulado por persona no es una acusación, es un número</b> — y la mayoría de las veces aparece un error de carga.</div>
+    <div class="nota" style="border-color:var(--coral)"><b>Lo que este prototipo todavía no hace:</b> sin servidor, esconder los costos al repartidor es una decisión de interfaz, no de seguridad — quien tenga el celular puede abrir las herramientas del navegador y verlos igual. La separación real llega en F1: el servidor no le manda los datos que no le corresponden.</div>
+  </div>`:''}
+
+  ${E.noVentas.length?`<div class="card glass">
+    <div class="eyebrow">Lo que no se vendió</div>
+    <table>${E.noVentas.map(n=>`<tr><td>${cli(n.cliente).nombre}</td><td style="color:var(--coral)">${n.motivo.replace('_',' ')}</td></tr>`).join('')}</table>
+    <div class="nota">Tres «precio» en un mes en la misma zona es un competidor entrando. <b>El «no compró» es dato, no ausencia de dato.</b></div>
+  </div>`:''}`;
+}
+
+function vClientes(){
+  const filas = CLIENTES.map(c=>{
+    const hoyToca = c.dias.includes(DIA_SEMANA);
+    const frec = c.dias.length ? c.dias.map(d=>DIAS[d].slice(0,3)).join(' · ') : 'por demanda';
+    const alerta = c.ultima!==null && c.ultima>=10;
+    return `<tr>
+      <td><div style="font-weight:540">${c.nombre}${hoyToca?' <span class="badge ok">HOY</span>':''}</div>
+          <div style="font-size:11.5px;color:var(--tenue)">${c.dir}</div>
+          ${c.ref?`<div style="font-size:11px;color:var(--mudo);font-style:italic">${c.ref}</div>`:''}
+          ${c.notas?`<div style="font-size:11px;color:var(--mudo)">✎ ${c.notas}</div>`:''}</td>
+      <td style="font-size:11.5px;color:var(--tenue);white-space:nowrap">${frec}<br><span style="color:var(--mudo)">${c.lista}</span></td>
+      <td class="num" style="font-size:11.5px;color:${alerta?'var(--coral)':'var(--tenue)'}">${c.ultima===null?'nunca':c.ultima+' d'}</td>
+      <td class="num" style="white-space:nowrap">
+        ${!c.punto?'<span class="badge no">SIN PIN</span>'
+          :c.punto.aproximado?'<span class="badge pin">PIN APROX. (Maps)</span>'
+          :c.punto.nuevo?'<span class="badge ok">PIN NUEVO</span>'
+          :'<span class="badge pin">PIN ✓</span>'}
+        <a href="${mapsUrl(c)}" target="_blank" rel="noopener"><button class="btn chico">Ir</button></a></td>
+    </tr>`;
+  }).join('');
+
+  return `
+  <h2>Cartera</h2>
+  <p class="lead">La referencia y el pin son campos de primera clase, no notas al pie. Media cartera vive en «la casa de rejas verdes al lado del kiosco» y esa dirección no la resuelve ningún geocodificador.</p>
+  <div class="card glass"><div class="tabla-scroll"><table>
+    <thead><tr><th>Cliente</th><th>Frecuencia</th><th class="num">Últ.</th><th class="num">Ubicación</th></tr></thead>
+    <tbody>${filas}</tbody></table></div></div>
+  <div class="nota">Rotisería El Fogón lleva <b>19 días</b> y Drugstore Nocturno <b>27</b>. La app no los reclama sola: los muestra en rojo antes de que se caigan.</div>
+
+  ${bloqueAgregarCliente()}
+
+  ${bloqueZonas()}`;
+}
+
+function bloqueAgregarCliente(){
+  const DIAS_CORTO = [['0','dom'],['1','lun'],['2','mar'],['3','mié'],['4','jue'],['5','vie'],['6','sáb']];
+  return `<div class="card glass">
+    <div class="eyebrow">Agregar cliente</div>
+    <p style="font-size:12.5px;color:var(--tenue);margin:0 0 12px;line-height:1.55">
+      Arranca sin pin — se completa solo en la primera entrega, igual que con cualquier
+      cliente nuevo. No hace falta tenerlo para cargarlo.
+    </p>
+    <div class="fila">
+      <div class="campo" style="flex:1;min-width:160px"><label>Nombre del comercio</label><input id="in-cli-nombre" placeholder="Ej: Almacén Los Pinos"></div>
+      <div class="campo" style="flex:1;min-width:140px"><label>Contacto</label><input id="in-cli-contacto" placeholder="Quién atiende"></div>
+    </div>
+    <div class="fila">
+      <div class="campo" style="width:170px"><label>Teléfono</label><input id="in-cli-tel" placeholder="11 5555-5555"></div>
+      <div class="campo" style="flex:1;min-width:180px"><label>Domicilio</label>
+        <input id="in-cli-dir" placeholder="Calle y altura, localidad" oninput="E.clienteDirAprox=null"></div>
+      <div class="campo"><button class="btn" onclick="buscarDireccionEnMaps()">Buscar en Maps</button></div>
+    </div>
+    ${E.clienteDirAprox?`<div class="nota">Punto de Maps listo — se guarda como <b>aproximado</b>. El pin real se sigue aprendiendo solo en la primera entrega, y lo reemplaza apenas eso pase.</div>`:''}
+    <div class="fila">
+      <div class="campo" style="flex:1;min-width:180px"><label>Referencia (opcional)</label><input id="in-cli-ref" placeholder="Ej: rejas verdes al lado del kiosco"></div>
+      <div class="campo" style="width:130px"><label>Zona</label><input id="in-cli-zona" placeholder="Ej: Bernal" list="zonas-existentes">
+        <datalist id="zonas-existentes">${[...new Set(CLIENTES.map(c=>c.zona))].map(z=>`<option value="${z}">`).join('')}</datalist></div>
+      <div class="campo" style="width:130px"><label>Lista de precios</label>
+        <select id="in-cli-lista">${LISTAS.map(l=>`<option value="${l.id}">${l.nombre}</option>`).join('')}</select></div>
+    </div>
+    <div class="campo"><label>Días de reparto</label>
+      <div class="fila" style="gap:5px">${DIAS_CORTO.map(([v,l])=>`<label style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--tenue)">
+        <input type="checkbox" class="in-cli-dia" value="${v}" style="width:auto">${l}</label>`).join('')}</div></div>
+    <div class="fila">
+      <div class="campo" style="width:110px"><label>Atiende desde (opcional)</label><input class="num" type="number" id="in-cli-desde" placeholder="ej: 8" style="width:100%"></div>
+      <div class="campo" style="width:110px"><label>Hasta (opcional)</label><input class="num" type="number" id="in-cli-hasta" placeholder="ej: 19" style="width:100%"></div>
+      <div class="campo" style="flex:1;min-width:160px"><label>Notas (opcional)</label><input id="in-cli-notas" placeholder="Horario, con quién no hablar..."></div>
+    </div>
+    ${E.avisoCliente?`<div class="nota" style="border-color:var(--rojo)">${E.avisoCliente}</div>`:''}
+    <button class="btn pri" onclick="guardarCliente()">Guardar cliente</button>
+  </div>`;
+}
+
+function bloqueZonas(){
+  const filas = E.zonas.map(z=>`<tr>
+    <td>${z.nombre}${z.hastaHora!=null?` <span class="mono" style="font-size:10px;color:var(--mudo)">— sólo después de ${reloj(z.hastaHora)}</span>`:''}
+        ${z.motivo?`<div style="font-size:11px;color:var(--mudo)">${z.motivo}</div>`:''}
+        <div class="mono" style="font-size:10px;color:var(--mudo)">${z.lat.toFixed(4)}, ${z.lng.toFixed(4)}</div></td>
+    <td class="num">${z.radio} m</td>
+    <td class="num"><button class="btn chico sec" onclick="eliminarZona('${z.id}')">Quitar</button></td>
+  </tr>`).join('');
+
+  return `<div class="card glass">
+    <div class="eyebrow" style="color:var(--rojo)">Zonas a evitar</div>
+    <p style="font-size:12.5px;color:var(--tenue);margin:0 0 12px;line-height:1.55">
+      Esto lo cargás vos: es la única información de seguridad que ningún mapa tiene, ni
+      Google ni Waze — ninguno de los dos vende «evitar zona peligrosa» como parámetro de ruta.
+      Marcá un punto y un radio; el optimizador penaliza fuerte cualquier tramo que pase cerca
+      (<span class="mono">${PENAL_ZONA} km</span> equivalentes, más que perder una venta) y esa
+      parada se abre siempre en <b>Waze primero</b>, para ver sus alertas en vivo antes de entrar.
+    </p>
+    ${E.zonas.length?`<div class="tabla-scroll"><table style="margin-bottom:16px">
+      <thead><tr><th>Zona</th><th class="num">Radio</th><th></th></tr></thead>
+      <tbody>${filas}</tbody></table></div>`
+      :`<div class="vacio" style="padding:10px 2px 18px;text-align:left">Todavía no cargaste ninguna.</div>`}
+
+    <div class="fila">
+      <div class="campo" style="flex:1;min-width:160px"><label>Nombre o referencia</label><input id="in-zona-nombre" placeholder="Ej: Alsina y Belgrano"></div>
+      <div class="campo" style="width:100px"><label>Radio (m)</label><input class="num" id="in-zona-radio" type="number" value="150" style="width:100%"></div>
+    </div>
+    <div class="fila">
+      <div class="campo" style="width:130px"><label>Latitud</label><input class="num" id="in-zona-lat" placeholder="-34.70000" style="width:100%"></div>
+      <div class="campo" style="width:130px"><label>Longitud</label><input class="num" id="in-zona-lng" placeholder="-58.28000" style="width:100%"></div>
+      <div class="campo"><button class="btn" onclick="elegirEnMapa()">Elegir en el mapa</button></div>
+    </div>
+    <div class="fila">
+      <div class="campo" style="flex:1;min-width:160px"><label>Motivo (opcional)</label><input id="in-zona-motivo" placeholder="Lo que corresponda"></div>
+      <div class="campo" style="width:200px"><label>Sólo riesgosa después de (opcional)</label><input class="num" id="in-zona-hora" type="number" placeholder="ej: 19, 24hs" style="width:100%"></div>
+    </div>
+    ${E.avisoZona?`<div class="nota" style="border-color:var(--rojo)">${E.avisoZona}</div>`:''}
+    <button class="btn pri" onclick="guardarZona()">Guardar zona</button>
+  </div>`;
+}
+
+function vProductos(){
+  if(E.perfil!=='deposito') return `<h2>Precios</h2>
+    <div class="card glass vacio">El costo de reposición y el margen los ve el depósito.<br>
+    El repartidor vende con la lista del cliente, que ya la tiene en <b>Vender</b>.</div>`;
+  const filas = PRODUCTOS.map(p=>{
+    const m = margen(p), viejo = p.dias>30;
+    const col = m<10?'var(--rojo)':m<20?'var(--amarillo)':'var(--verde)';
+    return `<tr>
+      <td><div style="font-weight:540">${p.nombre}</div>
+          <div class="mono" style="font-size:10.5px;color:var(--mudo)">${p.rubro} · bulto x${p.porBulto}${p.vence?' · vence':''}${p.retornable?' · retornable':''}</div></td>
+      <td class="num" style="color:${viejo?'var(--coral)':'var(--tenue)'}">${peso(p.costo)}<div style="font-size:10px;color:var(--mudo)">hace ${p.dias} d</div></td>
+      <td class="num">${peso(p.precios.mayorista)}</td>
+      <td class="num">${peso(p.precios.minorista)}</td>
+      <td class="num" style="color:${col};font-weight:600">${m.toFixed(0)}%</td>
+      <td class="num" style="color:var(--tenue)">${stock(p.id,'deposito')}</td>
+    </tr>`;
+  }).join('');
+
+  const flojos = PRODUCTOS.filter(p=>margen(p)<10);
+  const viejos = PRODUCTOS.filter(p=>p.dias>30);
+
+  return `
+  <h2>Precios y stock</h2>
+  <p class="lead">El margen se calcula contra el <b>costo de reposición</b>, no contra lo que se pagó hace cuarenta días. Con inflación, el costo histórico es ficción contable.</p>
+
+  <div class="card glass">
+    <div class="eyebrow">Remarcación masiva</div>
+    <div class="fila">
+      <div class="campo" style="width:110px"><label>Porcentaje</label><input class="num" type="number" id="rem-pct" value="8" style="width:100%"></div>
+      <div class="campo" style="flex:1;min-width:130px"><label>Alcance</label>
+        <select id="rem-rubro"><option value="">Todos los productos</option>
+        ${[...new Set(PRODUCTOS.map(p=>p.rubro))].map(r=>`<option>${r}</option>`).join('')}</select></div>
+      <div class="campo"><button class="btn pri" onclick="remarcar()">Aplicar</button></div>
+    </div>
+  </div>
+
+  ${flojos.length?`<div class="card glass" style="border-color:rgba(255,91,91,.3)">
+    <div class="eyebrow" style="color:var(--rojo)">Margen bajo</div>
+    <div style="font-size:13px;color:var(--tenue)">${flojos.map(p=>p.nombre+' ('+margen(p).toFixed(0)+'%)').join(' · ')} — el precio de lista quedó abajo del costo de reponer.</div>
+  </div>`:''}
+  ${viejos.length?`<div class="card glass" style="border-color:rgba(255,122,89,.28)">
+    <div class="eyebrow" style="color:var(--coral)">Costo desactualizado</div>
+    <div style="font-size:13px;color:var(--tenue)">${viejos.map(p=>p.nombre+' — hace '+p.dias+' días').join(' · ')}. Todo margen calculado sobre ese número es dudoso.</div>
+  </div>`:''}
+
+  <div class="card glass"><div class="tabla-scroll"><table>
+    <thead><tr><th>Producto</th><th class="num">Costo repos.</th><th class="num">Mayorista</th><th class="num">Minorista</th><th class="num">Margen</th><th class="num">Depósito</th></tr></thead>
+    <tbody>${filas}</tbody></table></div></div>
+
+  ${bloqueAgregarProducto()}`;
+}
+
+function bloqueAgregarProducto(){
+  return `<div class="card glass">
+    <div class="eyebrow">Agregar producto</div>
+    <p style="font-size:12.5px;color:var(--tenue);margin:0 0 12px;line-height:1.55">
+      El código puede ser el de barras o uno propio — es el <span class="mono">id</span> del
+      producto y no se puede repetir. Escaneá para no tipear trece dígitos a mano.
+    </p>
+    <div class="fila">
+      <div class="campo" style="flex:1;min-width:150px"><label>Código / SKU</label><input id="in-prod-codigo" placeholder="Ej: 7790001234567"></div>
+      <div class="campo"><button class="btn" onclick="escanearCodigo(v=>{$('#in-prod-codigo').value=v})">📷 Escanear</button></div>
+    </div>
+    <div class="fila">
+      <div class="campo" style="flex:1;min-width:150px"><label>Nombre</label><input id="in-prod-nombre" placeholder="Ej: Gaseosa cola 2,25 L"></div>
+      <div class="campo" style="width:150px"><label>Rubro</label><input id="in-prod-rubro" placeholder="Ej: Bebidas" list="rubros-existentes">
+        <datalist id="rubros-existentes">${[...new Set(PRODUCTOS.map(p=>p.rubro))].map(r=>`<option value="${r}">`).join('')}</datalist></div>
+    </div>
+    <div class="fila">
+      <div class="campo" style="width:110px"><label>Unidad</label>
+        <select id="in-prod-unidad"><option value="unidad">Unidad</option><option value="bulto" selected>Bulto</option><option value="kg">Kg</option></select></div>
+      <div class="campo" style="width:110px"><label>Un. por bulto</label><input class="num" type="number" id="in-prod-porbulto" value="1" style="width:100%"></div>
+      <div class="campo" style="width:130px"><label>Costo reposición</label><input class="num" type="number" id="in-prod-costo" value="0" style="width:100%"></div>
+      <div class="campo" style="width:130px"><label>Stock inicial dep.</label><input class="num" type="number" id="in-prod-stock" value="0" style="width:100%"></div>
+    </div>
+    <div class="fila">
+      ${LISTAS.map(l=>`<div class="campo" style="width:130px"><label>Precio ${l.nombre}</label><input class="num" type="number" id="in-prod-precio-${l.id}" value="0" style="width:100%"></div>`).join('')}
+    </div>
+    <div class="fila" style="align-items:center">
+      <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--tenue)"><input type="checkbox" id="in-prod-vence" style="width:auto">Vence</label>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--tenue)"><input type="checkbox" id="in-prod-retornable" style="width:auto">Envase retornable</label>
+    </div>
+    ${E.avisoProducto?`<div class="nota" style="border-color:var(--rojo)">${E.avisoProducto}</div>`:''}
+    <button class="btn pri" onclick="guardarProducto()">Guardar producto</button>
+  </div>`;
+}
+
+/* ============================================================
+   mapa · opcional, con key propia del usuario
+   La key NUNCA va en el código: se pega una vez y queda en este
+   dispositivo. Así no viaja al repositorio ni a la demo publicada.
+   ============================================================ */
+const KEY_LS = 'dz.gkey';
+const getKey = () => { try{ return localStorage.getItem(KEY_LS)||''; }catch(e){ return ''; } };
+const setKey = v => { try{ localStorage.setItem(KEY_LS,v); }catch(e){} };
+
+function cerrarPanel(){ pararEscaneo(); $('#panel').hidden = true; $('#mapa').classList.remove('on'); }
+
+/* ============================================================
+   lector de códigos de barra · BarcodeDetector nativo, sin libs
+   Cámara trasera, apunta a un input o a una acción por callback.
+   No anda en Safari/iPhone (sin soporte nativo) ni abriendo el
+   archivo con doble clic (getUserMedia exige http/https) — en
+   los dos casos cae a carga manual, nunca a un callejón sin salida.
+   ============================================================ */
+let escaneoActivo = null, onCodigoDetectado = null;
+function pararEscaneo(){
+  if(escaneoActivo){
+    if(escaneoActivo.raf) cancelAnimationFrame(escaneoActivo.raf);
+    if(escaneoActivo.stream) escaneoActivo.stream.getTracks().forEach(t=>t.stop());
+    escaneoActivo = null;
+  }
+}
+function panelFallbackEscaneo(motivo){
+  panelMsg(`<div class="nota" style="border-color:var(--amarillo)">${motivo}</div>
+    <div class="campo" style="margin-top:10px"><label>Código a mano</label><input id="scan-manual" placeholder="Tipealo y confirmá"></div>
+    <button class="btn pri" onclick="usarCodigoManual()">Usar este código</button>`,
+    'Escanear código de barras');
+}
+function usarCodigoManual(){
+  const v = ($('#scan-manual')||{}).value;
+  if(!v || !v.trim()) return;
+  const cb = onCodigoDetectado; onCodigoDetectado = null;
+  cerrarPanel();
+  if(cb) cb(v.trim());
+}
+function escanearCodigo(cb){
+  pararEscaneo();
+  onCodigoDetectado = cb;
+  if(location.protocol==='file:'){
+    panelFallbackEscaneo('La cámara no funciona abriendo el archivo con doble clic — los navegadores la bloquean fuera de http(s). Serví la carpeta con un servidor local o escribí el código a mano.');
+    return;
+  }
+  if(!('BarcodeDetector' in window)){
+    panelFallbackEscaneo('Este navegador no tiene lector nativo de códigos de barra — Safari e iPhone todavía no lo soportan a esta fecha. Andá bien en Chrome/Android. Mientras tanto, escribilo a mano.');
+    return;
+  }
+  panelMsg('<div style="font-size:13px;color:var(--tenue)">Pidiendo permiso de cámara…</div>','Escanear código de barras');
+  navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}}).then(stream=>{
+    let detector;
+    try{ detector = new BarcodeDetector({formats:['ean_13','ean_8','upc_a','upc_e','code_128','qr_code']}); }
+    catch(e){ stream.getTracks().forEach(t=>t.stop()); panelFallbackEscaneo('El lector de códigos no arrancó en este navegador. Escribilo a mano.'); return; }
+    $('#panel-cuerpo').innerHTML = `<div style="font-size:13px;color:var(--tenue);margin-bottom:8px">Apuntá al código de barras.</div>
+      <video id="scan-video" playsinline autoplay muted style="width:100%;border-radius:14px;background:#000"></video>
+      <div style="margin-top:8px;font-size:11.5px;color:var(--mudo)">Buscando…</div>`;
+    const video = $('#scan-video');
+    video.srcObject = stream;
+    escaneoActivo = {stream, raf:null};
+    const paso = () => {
+      if(!escaneoActivo) return;
+      detector.detect(video).then(codigos=>{
+        if(!escaneoActivo) return;
+        if(codigos.length){
+          const valor = codigos[0].rawValue;
+          pararEscaneo();
+          const cb = onCodigoDetectado; onCodigoDetectado = null;
+          cerrarPanel();
+          if(cb) cb(valor);
+        } else escaneoActivo.raf = requestAnimationFrame(paso);
+      }).catch(()=>{ if(escaneoActivo) escaneoActivo.raf = requestAnimationFrame(paso); });
+    };
+    paso();
+  }).catch(e=>{
+    panelFallbackEscaneo('No se pudo abrir la cámara ('+(e.name||e.message)+'). Si rechazaste el permiso, tenés que habilitarlo desde la configuración del sitio.');
+  });
+}
+function panelMsg(html, titulo){
+  $('#panel').hidden = false;
+  if(titulo) $('#panel-titulo').textContent = titulo;
+  $('#panel-cuerpo').innerHTML = html;
+}
+function pedirKey(){
+  panelMsg(`
+    <div style="font-size:13.5px;color:var(--tenue);line-height:1.6">
+      El mapa usa Google Maps y necesita una clave propia. Se guarda <b>en este dispositivo</b>,
+      no en la app ni en el repositorio.
+    </div>
+    <div class="campo" style="margin-top:12px"><label>Clave de Google Maps</label>
+      <input id="in-key" type="password" placeholder="AIza…" value="${getKey()}"></div>
+    <div style="display:flex;gap:7px;flex-wrap:wrap">
+      <button class="btn pri" onclick="setKey($('#in-key').value.trim());abrirMapa()">Guardar y abrir</button>
+      ${getKey()?`<button class="btn sec" onclick="setKey('');pedirKey()">Borrar la clave de este equipo</button>`:''}
+    </div>
+    <div class="nota" style="border-color:var(--amarillo)">
+      <b>Una clave de mapas en una app web es visible por diseño</b> — cualquiera que abra la app
+      puede leerla. Lo que la protege no es el secreto: son las restricciones. Ponele
+      restricción por dominio, dejá habilitadas solo las APIs que uses, y ponele un tope de
+      cuota diario.
+    </div>`, 'Clave de Google Maps');
+}
+/* Bootstrap loader nuevo de Google, en vez del script clásico de siempre.
+   PlaceAutocompleteElement (autocompletar direcciones) sólo carga así — el
+   &libraries=places del script clásico no alcanza para ese componente
+   puntual, aunque el resto (mapas, rutas) sigue andando igual que antes.
+   Es el snippet oficial, con la key inyectada recién al usarse — nunca
+   escrita en el archivo. Instalarlo dos veces no hace nada (lo dice la
+   propia documentación de Google), así que no hace falta cuidar eso. */
+function instalarBootstrapMaps(key){
+  if(window.google && window.google.maps && window.google.maps.importLibrary) return;
+  (g=>{var h,a,k,p="The Google Maps JavaScript API",c="google",l="importLibrary",q="__ib__",m=document,b=window;b=b[c]||(b[c]={});var d=b.maps||(b.maps={}),r=new Set,e=new URLSearchParams,u=()=>h||(h=new Promise(async(f,n)=>{await (a=m.createElement("script"));e.set("libraries",[...r]+"");for(k in g)e.set(k.replace(/[A-Z]/g,t=>"_"+t[0].toLowerCase()),g[k]);e.set("callback",c+".maps."+q);a.src=`https://maps.${c}apis.com/maps/api/js?`+e;d[q]=f;a.onerror=()=>h=n(Error(p+" could not load."));a.nonce=m.querySelector("script[nonce]")?.nonce||"";m.head.append(a)}));d[l]?console.warn(p+" only loads once. Ignoring:",g):d[l]=(f,...n)=>r.add(f)&&u().then(()=>d[l](f,...n))})({key});
+}
+/* libs por default alcanza para mapa, marcadores y círculos (zonas). Quien
+   necesite además rutas o autocompletado de direcciones pasa su propia
+   lista — ver compararGoogle() y buscarDireccionEnMaps(). */
+function cargarMaps(ok, err, libs){
+  libs = libs || ['maps','marker'];
+  if(!getKey()) return pedirKey();
+  window.gm_authFailure = () => err('Google rechazó la clave. Suele ser una de tres: la clave está restringida a otros dominios, la API no está habilitada en el proyecto, o el proyecto no tiene facturación.');
+  instalarBootstrapMaps(getKey());
+  const listo   = Promise.all(libs.map(l=>google.maps.importLibrary(l)));
+  const tiempo  = new Promise((_,rej)=>setTimeout(()=>rej(new Error('Google Maps no contestó en ocho segundos. Sin conexión, o el script quedó bloqueado.')), 8000));
+  Promise.race([listo, tiempo]).then(()=>ok()).catch(e=>{
+    const msg = (e&&e.message) || String(e);
+    const pista = msg.includes('could not load')
+      ? ' <b>Si estás viendo esto en la demo publicada es lo esperado:</b> ese sandbox bloquea todo script externo. Abrí <span class="mono">app/index.html</span> local y volvé a intentar.'
+      : '';
+    err(msg+pista);
+  });
+}
+function abrirMapa(){
+  const ruta = rutaDelDia();
+  panelMsg('<div style="font-size:13px;color:var(--tenue)">Cargando el mapa…</div>','Mapa de la ruta');
+  cargarMaps(()=>{
+    $('#panel-cuerpo').innerHTML = `<div style="font-size:13px;color:var(--tenue)">
+      ${ruta.length} paradas de hoy, en el orden actual. El depósito es el punto verde.</div>
+      <div style="font-size:11.5px;color:var(--mudo);margin-top:7px;line-height:1.55">
+      Si el mapa aparece gris con <b style="color:var(--tenue)">«For development purposes only»</b> encima,
+      al proyecto de Google le falta la cuenta de facturación: el mapa se ve, pero marcado.
+      Google pide tarjeta incluso para el tramo gratuito.</div>`;
+    $('#mapa').classList.add('on');
+    /* el mapa se mide al crearse: si el div todavía está en cero, sale mal */
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      const mapa = new google.maps.Map($('#mapa'), {center:DEPOSITO, zoom:13, mapTypeControl:false, streetViewControl:false, fullscreenControl:false});
+      const caja = new google.maps.LatLngBounds();
+      E.zonas.forEach(z=>{
+        new google.maps.Circle({center:{lat:z.lat,lng:z.lng}, radius:z.radio, map:mapa,
+          fillColor:'#FF5B5B', fillOpacity:.16, strokeColor:'#FF5B5B', strokeOpacity:.6, strokeWeight:1});
+        caja.extend({lat:z.lat,lng:z.lng});
+      });
+      new google.maps.Marker({position:DEPOSITO, map:mapa, title:'Depósito', zIndex:99,
+        icon:{path:google.maps.SymbolPath.CIRCLE, scale:9, fillColor:'#2FBF71', fillOpacity:1, strokeColor:'#04120A', strokeWeight:2}});
+      caja.extend(DEPOSITO);
+      const camino = [DEPOSITO];
+      ruta.forEach((c,i)=>{
+        const pos = puntoDe(c);
+        new google.maps.Marker({position:pos, map:mapa, title:(i+1)+'. '+c.nombre+' — '+c.dir,
+          label:{text:String(i+1), color:'#fff', fontSize:'11px', fontWeight:'600'}});
+        caja.extend(pos); camino.push(pos);
+      });
+      camino.push(DEPOSITO);
+      new google.maps.Polyline({path:camino, map:mapa, strokeColor:'#2FBF71', strokeOpacity:.55, strokeWeight:3});
+      mapa.fitBounds(caja, 28);
+      /* red de seguridad: algunos errores de Google sólo van a la consola y el mapa
+         queda en blanco sin avisar. Si en cinco segundos no cargó un solo tile, lo decimos. */
+      let cargo = false;
+      mapa.addListener('tilesloaded', ()=>{ cargo = true; });
+      setTimeout(()=>{ if(!cargo){
+        $('#mapa').classList.remove('on');
+        panelMsg(`<div class="nota" style="border-color:var(--rojo)">
+          <b>El mapa no cargó.</b> Mirá la consola del navegador: el mensaje exacto está ahí.
+          Las tres causas habituales, en orden de frecuencia:
+          <br>· <span class="mono">BillingNotEnabledMapError</span> — el proyecto no tiene cuenta de facturación asociada. Google pide tarjeta incluso para el tramo gratuito.
+          <br>· <span class="mono">ApiNotActivatedMapError</span> — falta habilitar Maps JavaScript API en ese proyecto.
+          <br>· <span class="mono">RefererNotAllowedMapError</span> — la clave está restringida a otros dominios.
+          </div>
+          <button class="btn" onclick="pedirKey()">Cambiar la clave</button>`, 'Mapa de la ruta');
+      }}, 5000);
+    }));
+  }, e=>panelMsg('<div class="nota" style="border-color:var(--rojo)">'+e+'</div>'+
+       '<button class="btn" onclick="pedirKey()">Cambiar la clave</button>','Mapa de la ruta'));
+}
+/* Elegir el punto de una zona tocando el mapa, en vez de tipear lat/lng a mano.
+   El click escribe directo en los inputs del formulario de Clientes — no hace falta
+   otro formulario adentro del panel. */
+function elegirEnMapa(){
+  panelMsg('<div style="font-size:13px;color:var(--tenue)">Cargando el mapa…</div>','Tocá el mapa en el punto a marcar');
+  cargarMaps(()=>{
+    $('#panel-cuerpo').innerHTML = `<div style="font-size:13px;color:var(--tenue)">
+      Tocá el punto exacto. Las zonas ya cargadas se ven en rojo, de referencia.</div>
+      <div id="z-pick" class="mono" style="margin-top:7px;font-size:12px;color:var(--verde)"></div>`;
+    $('#mapa').classList.add('on');
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      const mapa = new google.maps.Map($('#mapa'), {center:DEPOSITO, zoom:13, mapTypeControl:false, streetViewControl:false, fullscreenControl:false});
+      E.zonas.forEach(z=>new google.maps.Circle({center:{lat:z.lat,lng:z.lng}, radius:z.radio, map:mapa,
+        fillColor:'#FF5B5B', fillOpacity:.16, strokeColor:'#FF5B5B', strokeOpacity:.55, strokeWeight:1}));
+      let marker=null;
+      mapa.addListener('click', e=>{
+        const lat=+e.latLng.lat().toFixed(5), lng=+e.latLng.lng().toFixed(5);
+        if(marker) marker.setMap(null);
+        marker = new google.maps.Marker({position:{lat,lng}, map:mapa});
+        if($('#in-zona-lat')) $('#in-zona-lat').value = lat;
+        if($('#in-zona-lng')) $('#in-zona-lng').value = lng;
+        const info = document.getElementById('z-pick');
+        if(info) info.textContent = 'Punto elegido: '+lat+', '+lng+' — cerrá y guardá abajo.';
+      });
+    }));
+  }, e=>panelMsg('<div class="nota" style="border-color:var(--rojo)">'+e+'</div>','Elegir en el mapa'));
+}
+/* Autocompletar el domicilio contra direcciones reales de Maps. No reemplaza
+   el pin real —ese se sigue aprendiendo solo en la primera entrega, ver
+   capturarPunto()— sólo mejora el texto y deja un punto de arranque mejor
+   que el centroide de la zona que se usaba antes de tener cualquier pin.
+   Se paga por sesión de autocompletado — a este volumen son centavos, pero
+   verificá el precio vigente antes de escalarlo a toda la cartera. */
+function buscarDireccionEnMaps(){
+  E.clienteDirAprox = null;
+  panelMsg('<div style="font-size:13px;color:var(--tenue)">Cargando…</div>','Buscar dirección en Maps');
+  cargarMaps(async ()=>{
+    let PlaceAutocompleteElement;
+    try{
+      ({ PlaceAutocompleteElement } = await google.maps.importLibrary('places'));
+    }catch(e){
+      panelMsg('<div class="nota" style="border-color:var(--rojo)">No se pudo cargar el autocompletado: '+(e&&e.message||e)+'</div>','Buscar dirección en Maps');
+      return;
+    }
+    $('#panel-cuerpo').innerHTML = `<div style="font-size:13px;color:var(--tenue);margin-bottom:11px">
+      Escribí y elegí una sugerencia. No reemplaza el pin real —eso se aprende solo en la
+      primera entrega—, deja nomás un punto de arranque mejor que nada.</div>
+      <div id="pac-contenedor"></div>`;
+    const el = new PlaceAutocompleteElement();
+    el.style.width = '100%';
+    $('#pac-contenedor').appendChild(el);
+    el.addEventListener('gmp-select', async ({placePrediction})=>{
+      const place = placePrediction.toPlace();
+      await place.fetchFields({fields:['formattedAddress','location']});
+      if($('#in-cli-dir')) $('#in-cli-dir').value = place.formattedAddress || $('#in-cli-dir').value;
+      if(place.location) E.clienteDirAprox = {lat:place.location.lat(), lng:place.location.lng(), aproximado:true};
+      cerrarPanel();
+    });
+  }, e=>panelMsg('<div class="nota" style="border-color:var(--rojo)">'+e+'</div>','Buscar dirección en Maps'), ['maps','places']);
+}
+function guardarZona(){
+  const nombre = ($('#in-zona-nombre').value||'').trim();
+  const lat = +$('#in-zona-lat').value, lng = +$('#in-zona-lng').value;
+  const radio = Math.max(30, +$('#in-zona-radio').value || 150);
+  const horaTxt = ($('#in-zona-hora').value||'').trim();
+  if(!nombre || !isFinite(lat) || !isFinite(lng) || Math.abs(lat)>90 || Math.abs(lng)>180){
+    E.avisoZona = 'Falta el nombre o las coordenadas — tipealas o tocá «Elegir en el mapa».';
+    render(); return;
+  }
+  E.zonas.push({id:'Z'+(++E.zonaSeq), nombre, lat, lng, radio,
+    motivo:($('#in-zona-motivo').value||'').trim(), hastaHora: horaTxt===''?null:+horaTxt});
+  E.avisoZona = '';
+  render();
+}
+function eliminarZona(id){ E.zonas = E.zonas.filter(z=>z.id!==id); render(); }
+
+/* ============================================================
+   panel WhatsApp · desplegable, sin bloquear el resto de la app
+   V1: click-to-chat (wa.me) y un vistazo a lo vendido hoy — sin
+   backend, sin riesgo. Un inbox en vivo adentro del panel es otra
+   cosa: ver la nota dentro de renderWaDrawer().
+   ============================================================ */
+function toggleWa(){ E.waAbierto = !E.waAbierto; render(); }
+/* heurística para :AR — 54 9 + área + número, sin el 0 ni el 15. Puede fallar con
+   formatos poco comunes; para eso queda editable a mano en la ficha del cliente. */
+function normalizarWa(tel){
+  const solo = (tel||'').replace(/\D/g,'');
+  return solo ? '549'+solo : null;
+}
+function waUrl(c, texto){
+  const n = normalizarWa(c.tel);
+  return n ? 'https://wa.me/'+n+(texto?('?text='+encodeURIComponent(texto)):'') : null;
+}
+function renderWaDrawer(){
+  const el = $('#wa-drawer'); if(!el) return;
+  el.classList.toggle('on', E.waAbierto);
+  if(!E.waAbierto) return;   /* cerrado: no hace falta recalcular el contenido */
+
+  const ruta = rutaDelDia();
+  const filasVentas = E.ventas.length ? E.ventas.slice().reverse().map(v=>{
+    const c = cli(v.cliente);
+    return `<div style="display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:.5px solid rgba(255,255,255,.06);font-size:12.5px">
+      <span>${c?c.nombre:v.cliente}</span><span class="mono" style="color:var(--verde)">${peso(v.total)}</span></div>`;
+  }).join('') : `<div style="font-size:12px;color:var(--mudo);padding:5px 0">Todavía no hay ventas hoy.</div>`;
+
+  const conTel = ruta.filter(c=>c.tel);
+  const filasChat = conTel.length ? conTel.map(c=>{
+    const url = waUrl(c, 'Hola '+c.contacto+', te escribo de tu proveedor habitual —');
+    const vendido = E.ventas.find(v=>v.cliente===c.id);
+    return `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 0;border-bottom:.5px solid rgba(255,255,255,.06)">
+      <div><div style="font-size:12.5px;font-weight:540">${c.nombre}</div>
+        <div style="font-size:10.5px;color:var(--mudo)">${vendido?'ya le vendiste hoy':'todavía no le tocó'}</div></div>
+      ${url?`<a href="${url}" target="_blank" rel="noopener"><button class="btn chico">Abrir chat</button></a>`:''}
+    </div>`;
+  }).join('') : `<div style="font-size:12px;color:var(--mudo);padding:5px 0">Ningún cliente de hoy tiene teléfono cargado.</div>`;
+
+  $('#wa-cuerpo').innerHTML = `
+    <div style="font-size:11.5px;color:var(--tenue);line-height:1.55;margin-bottom:15px">
+      Esto abre <b>tu WhatsApp de siempre</b> con el número ya cargado — no es un chat en
+      vivo adentro de la app todavía. Se decidió ir por la <b>Cloud API oficial de Meta</b>
+      (no una librería no oficial, para no arriesgar el número real). Falta la parte que le
+      toca al dueño del proyecto —verificar Meta Business, dar de alta el número— antes de
+      que esto muestre mensajes en vivo. El plan completo y el scaffold del webhook están
+      en <span class="mono">DZ-WSP-01</span> y <span class="mono">server/</span>.
+    </div>
+    <div class="eyebrow" style="font-size:9.5px">Vendido hoy — ${peso(totalVendido())}</div>
+    <div style="margin-bottom:17px">${filasVentas}</div>
+    <div class="eyebrow" style="font-size:9.5px">Clientes de hoy</div>
+    <div>${filasChat}</div>`;
+}
+
+function guardarProducto(){
+  const codigo = ($('#in-prod-codigo').value||'').trim();
+  const nombre = ($('#in-prod-nombre').value||'').trim();
+  if(!codigo || !nombre){ E.avisoProducto='Falta el código o el nombre.'; render(); return; }
+  if(prod(codigo)){ E.avisoProducto='Ya existe un producto con el código '+codigo+' — es el id, no puede repetirse.'; render(); return; }
+  const precios = {};
+  LISTAS.forEach(l=>precios[l.id] = +($('#in-prod-precio-'+l.id).value)||0);
+  const nuevo = {
+    id: codigo, nombre, rubro: ($('#in-prod-rubro').value||'Sin rubro').trim(),
+    unidad: $('#in-prod-unidad').value, porBulto: +$('#in-prod-porbulto').value||1,
+    costo: +$('#in-prod-costo').value||0, dias: 0, precios,
+    vence: $('#in-prod-vence').checked, retornable: $('#in-prod-retornable').checked,
+  };
+  PRODUCTOS.push(nuevo);
+  const stockInicial = +$('#in-prod-stock').value||0;
+  if(stockInicial>0) asentar('compra','proveedor','deposito',codigo,stockInicial,{motivo:'alta de producto'});
+  E.avisoProducto = '';
+  render();
+}
+
+function siguienteIdCliente(){
+  const max = CLIENTES.reduce((m,c)=>Math.max(m, parseInt(c.id.slice(1),10)||0), 0);
+  return 'C'+String(max+1).padStart(2,'0');
+}
+function guardarCliente(){
+  const nombre = ($('#in-cli-nombre').value||'').trim();
+  const dir = ($('#in-cli-dir').value||'').trim();
+  if(!nombre || !dir){ E.avisoCliente='Falta el nombre o el domicilio.'; render(); return; }
+  const dias = $$('.in-cli-dia:checked').map(el=>+el.value).sort();
+  const desde = $('#in-cli-desde').value, hasta = $('#in-cli-hasta').value;
+  const recibe = (desde!=='' && hasta!=='') ? [[+desde, +hasta]] : null;
+  const nuevo = {
+    id: siguienteIdCliente(), nombre, contacto: ($('#in-cli-contacto').value||'').trim(),
+    tel: ($('#in-cli-tel').value||'').trim(), dir, ref: ($('#in-cli-ref').value||'').trim(),
+    zona: ($('#in-cli-zona').value||'Sin zona').trim(),
+    orden: CLIENTES.filter(c=>c.zona===($('#in-cli-zona').value||'').trim()).length + 1,
+    lista: $('#in-cli-lista').value, dias, punto: E.clienteDirAprox, ultima: null,
+    notas: ($('#in-cli-notas').value||'').trim(), recibe,
+  };
+  CLIENTES.push(nuevo);
+  E.avisoCliente = '';
+  E.clienteDirAprox = null;
+  render();
+}
+
+/* Medir antes de pagar: el optimizador local contra el de Google, con los mismos puntos */
+function compararGoogle(){
+  const ruta = rutaDelDia();
+  panelMsg('<div style="font-size:13px;color:var(--tenue)">Consultando a Google…</div>','Local contra Google');
+  cargarMaps(()=>{
+    if(ruta.length>23) return panelMsg('<div class="nota">Google acepta hasta 23 paradas intermedias por consulta y hoy hay '+ruta.length+'.</div>','Local contra Google');
+    /* DirectionsService quedó deprecado el 25/02/2026 —sigue andando, sin
+       fecha de baja todavía— a favor de la Routes API nueva. No se migró
+       en esta pasada; queda anotado en DZ-WSP-01. */
+    new google.maps.DirectionsService().route({
+      origin:DEPOSITO, destination:DEPOSITO,
+      waypoints: ruta.map(c=>({location:puntoDe(c)})),
+      optimizeWaypoints:true, travelMode:'DRIVING'
+    }, (res,st)=>{
+      if(st!=='OK') return panelMsg(`<div class="nota" style="border-color:var(--rojo)">
+        Google contestó <span class="mono">${st}</span>.
+        ${st==='REQUEST_DENIED'?'<b>Falta habilitar la Directions API (o la Routes API) en el proyecto.</b> Con Maps JavaScript sola se dibuja el mapa, pero no se calculan recorridos — son APIs distintas y se facturan aparte.':''}
+        </div>`,'Local contra Google');
+      const gKm  = res.routes[0].legs.reduce((t,l)=>t+l.distance.value,0)/1000;
+      const gMin = res.routes[0].legs.reduce((t,l)=>t+l.duration.value,0)/60;
+      const local = optimizar(ruta), lKm = largo(local);
+      const agL = agenda(local), fueraL = agL.filter(x=>!x.ok).length;
+      const gOrden = res.routes[0].waypoint_order.map(i=>ruta[i]);
+      const fueraG = agenda(gOrden).filter(x=>!x.ok).length;
+      panelMsg(`<div class="tabla-scroll"><table>
+        <thead><tr><th></th><th class="num">Km</th><th class="num">Fuera de horario</th></tr></thead>
+        <tbody>
+        <tr><td>Optimizador local</td><td class="num">${lKm.toFixed(1)}</td><td class="num"><span class="dif ${fueraL?'mal':'cero'}">${fueraL}</span></td></tr>
+        <tr><td>Google, con calles y tráfico</td><td class="num">${gKm.toFixed(1)}</td><td class="num"><span class="dif ${fueraG?'mal':'cero'}">${fueraG}</span></td></tr>
+        </tbody></table></div>
+        <div class="nota">Google mide calles de verdad y tráfico: sus kilómetros son los reales, los nuestros una estimación.
+        <b>Pero Google no sabe a qué hora te recibe cada cliente</b> — esa columna es la que decide si hay venta.
+        Google estima ${Math.round(gMin)} min de manejo, sin contar las paradas.</div>
+        <div style="font-size:11.5px;color:var(--mudo)">Cada consulta de éstas se factura. Con una por repartidor por día el costo es de centavos al mes, pero verificá el precio vigente antes de contarlo como gratis.</div>`,
+        'Local contra Google');
+    });
+  }, e=>panelMsg('<div class="nota" style="border-color:var(--rojo)">'+e+'</div>','Local contra Google'), ['maps','marker','routes']);
+}
+
+/* ============================================================
+   acciones
+   ============================================================ */
+function confirmarCarga(){
+  PRODUCTOS.forEach(p=>{
+    const el = $('#c-'+p.id); const n = el ? +el.value : 0;
+    if(n>0) asentar('carga','deposito',CAM,p.id,n,{ref:'carga-'+new Date().toDateString()});
+  });
+  E.cargaConfirmada = true;
+  ir('hoy');
+}
+function aplicarOptimo(){ E.ordenOptimo = optimizar(rutaDelDia()).map(c=>c.id); render(); }
+function irAVender(id){ E.ventaEnCurso = {cliente:id,renglones:[]}; ir('vender'); }
+/* el scan agrega el renglón directo, como un lector de POS real */
+function seleccionarProductoEscaneado(codigo){
+  const c = cli(E.ventaEnCurso.cliente);
+  if(!c){ E.aviso='Elegí primero el cliente antes de escanear.'; render(); return; }
+  const p = prod(codigo);
+  if(!p){ E.aviso='No hay ningún producto con el código '+codigo+'. Se puede cargar en Precios.'; render(); return; }
+  if(stock(codigo,CAM)<=0){ E.aviso='Escaneaste '+p.nombre+', pero no hay stock en la camioneta.'; render(); return; }
+  const cant = Math.max(1, +($('#sel-cant')||{}).value || 1);
+  const ya = E.ventaEnCurso.renglones.find(r=>r.producto===codigo);
+  if(ya) ya.cantidad += cant;
+  else E.ventaEnCurso.renglones.push({producto:codigo, cantidad:cant, precio:p.precios[c.lista], lista:c.lista});
+  E.aviso = '';
+  render();
+}
+function agregarRenglonEncargue(){
+  const tipo = E.encargueEnCurso.tipoActual || 'catalogo';
+  if(tipo==='catalogo'){
+    const id = $('#enc-prod').value, n = +$('#enc-cant').value;
+    const p = prod(id);
+    if(!p||n<1) return;
+    const ya = E.encargueEnCurso.renglones.find(r=>r.tipo==='catalogo'&&r.producto===id);
+    if(ya) ya.cantidad += n;
+    else E.encargueEnCurso.renglones.push({tipo:'catalogo', producto:id, cantidad:n});
+  } else {
+    const desc = ($('#enc-desc').value||'').trim(), n = +$('#enc-cant-esp').value;
+    if(!desc||n<1) return;
+    E.encargueEnCurso.renglones.push({tipo:'especial', descripcion:desc, cantidad:n, productoVinculado:null});
+  }
+  E.avisoEncargue = '';
+  render();
+}
+function guardarEncargue(){
+  const enc = E.encargueEnCurso;
+  if(!enc.cliente || !enc.renglones.length){ E.avisoEncargue='Elegí un cliente y agregá al menos un renglón.'; render(); return; }
+  const id = 'ENC'+(++E.encargueSeq);
+  E.encargues.push({
+    id, cliente:enc.cliente, fecha:new Date().toISOString(), autor:REPARTIDOR,
+    renglones: enc.renglones, estado:'pendiente', motivo:'', ventaId:null,
+  });
+  E.encargueEnCurso = {cliente:'', tipoActual:'catalogo', renglones:[]};
+  E.avisoEncargue = '';
+  render();
+}
+function marcarPreparado(id){
+  const enc = E.encargues.find(e=>e.id===id);
+  if(enc) enc.estado = 'preparado';
+  render();
+}
+function vincularProductoEspecial(id, idx, productoId){
+  if(!productoId) return;
+  const enc = E.encargues.find(e=>e.id===id);
+  if(enc && enc.renglones[idx]) enc.renglones[idx].productoVinculado = productoId;
+  render();
+}
+function confirmarEntregaEncargue(id){
+  const enc = E.encargues.find(e=>e.id===id);
+  if(!enc || !encargueListoParaEntregar(enc)) return;
+  const c = cli(enc.cliente);
+  capturarPunto(c);
+  const medio = $('#enc-medio-'+id).value;
+  const renglonesVenta = enc.renglones.map(r=>{
+    const pid = renglonProductoId(r), p = prod(pid);
+    return {producto:pid, cantidad:r.cantidad, precio:p.precios[c.lista], lista:c.lista};
+  });
+  const total = renglonesVenta.reduce((t,r)=>t+r.cantidad*r.precio,0);
+  const ventaId = DISPOSITIVO+'-V'+(E.ventas.length+1);
+  renglonesVenta.forEach(r=>asentar('venta',CAM,'cliente',r.producto,r.cantidad,{ref:ventaId, motivo:'entrega de encargue '+enc.id}));
+  E.ventas.push({id:ventaId, cliente:c.id, repartidor:REPARTIDOR, renglones:renglonesVenta, total, medio, remito:ventaId, punto:c.punto});
+  enc.estado = 'entregado';
+  enc.ventaId = ventaId;
+  E.entregandoEncargue = '';
+  render();
+}
+function cancelarEncargue(id, motivo){
+  const enc = E.encargues.find(e=>e.id===id);
+  if(enc){ enc.estado='cancelado'; enc.motivo=motivo; }
+  E.encargueCancelando = '';
+  render();
+}
+function agregarRenglon(){
+  const id = $('#sel-prod').value, n = +$('#sel-cant').value;
+  const c = cli(E.ventaEnCurso.cliente), p = prod(id);
+  if(!p||n<1) return;
+  if(n > stock(id,CAM)){ E.aviso='Solo hay '+stock(id,CAM)+' de '+p.nombre+' en la camioneta. No se puede vender lo que no se cargó — invariante 4.'; render(); return; }
+  E.aviso='';
+  const ya = E.ventaEnCurso.renglones.find(r=>r.producto===id);
+  if(ya) ya.cantidad += n;
+  else E.ventaEnCurso.renglones.push({producto:id,cantidad:n,precio:p.precios[c.lista],lista:c.lista});
+  render();
+}
+/* en el equipo real esto es navigator.geolocation; acá se simula sobre la zona */
+function capturarPunto(c){
+  /* un pin aproximado (de Maps, cargado al alta) SÍ se deja pisar por el real:
+     lo que se aprende entregando siempre es más preciso que lo geocodificado. */
+  if(c.punto && !c.punto.aproximado) return c.punto;
+  const base = {'Bernal':[-34.7075,-58.2830],'Quilmes O.':[-34.7415,-58.2970],'Quilmes C.':[-34.7210,-58.2600],'Wilde':[-34.6990,-58.3175]}[c.zona]||[-34.72,-58.28];
+  c.punto = {lat:+(base[0]+(c.orden*0.0013)).toFixed(4), lng:+(base[1]-(c.orden*0.0011)).toFixed(4), nuevo:true};
+  return c.punto;
+}
+function confirmarVenta(){
+  const v = E.ventaEnCurso, c = cli(v.cliente);
+  if(!v.renglones.length) return;
+  capturarPunto(c);
+  const medio = $('#sel-medio').value;
+  const total = v.renglones.reduce((t,r)=>t+r.cantidad*r.precio,0);
+  const id = DISPOSITIVO+'-V'+(E.ventas.length+1);
+  v.renglones.forEach(r=>asentar('venta',CAM,'cliente',r.producto,r.cantidad,{ref:id}));
+  E.ventas.push({id,cliente:c.id,repartidor:REPARTIDOR,renglones:v.renglones,total,medio,remito:id,punto:c.punto});
+  E.ventaEnCurso = {cliente:'',renglones:[]};
+  ir('hoy');
+}
+function marcarNoVenta(id,motivo){
+  E.noVentas.push({cliente:id,motivo,fecha:new Date().toISOString()});
+  E.noVentaAbierta='';
+  render();
+}
+function remarcar(){
+  const pct = +$('#rem-pct').value, rubro = $('#rem-rubro').value;
+  PRODUCTOS.filter(p=>!rubro||p.rubro===rubro).forEach(p=>{
+    LISTAS.forEach(l=>p.precios[l.id] = Math.round(p.precios[l.id]*(1+pct/100)/10)*10);
+  });
+  render();
+}
+function simular(){
+  if(!E.cargaConfirmada){
+    PRODUCTOS.forEach(p=>{ const n=Math.min(sugerido(p.id),stock(p.id,'deposito')); if(n>0) asentar('carga','deposito',CAM,p.id,n,{ref:'carga-sim'}); });
+    E.cargaConfirmada = true;
+  }
+  const ruta = rutaDelDia();
+  ruta.forEach((c,i)=>{
+    if(estadoParada(c.id)!=='pendiente') return;
+    if(i===ruta.length-1){ E.noVentas.push({cliente:c.id,motivo:'precio',fecha:new Date().toISOString()}); return; }
+    const h = HISTORICO[c.id]||{};
+    const renglones = Object.keys(h).map(pid=>{
+      const cant = Math.min(h[pid], stock(pid,CAM));
+      return cant>0 ? {producto:pid,cantidad:cant,precio:prod(pid).precios[c.lista],lista:c.lista} : null;
+    }).filter(Boolean);
+    if(!renglones.length) return;
+    capturarPunto(c);
+    const total = renglones.reduce((t,r)=>t+r.cantidad*r.precio,0);
+    const id = DISPOSITIVO+'-V'+(E.ventas.length+1);
+    renglones.forEach(r=>asentar('venta',CAM,'cliente',r.producto,r.cantidad,{ref:id}));
+    E.ventas.push({id,cliente:c.id,repartidor:REPARTIDOR,renglones,total,medio:['efectivo','transferencia','qr'][i%3],remito:id,punto:c.punto});
+  });
+  /* el conteo de vuelta: cuadra en todo menos en dos productos — que es lo que pasa de verdad */
+  PRODUCTOS.forEach(p=>{ const q=stock(p.id,CAM); if(q>0) E.contado[p.id]=q; });
+  if(E.contado['COLA225']!==undefined) E.contado['COLA225'] = Math.max(0,E.contado['COLA225']-2);
+  if(E.contado['GALL400']!==undefined) E.contado['GALL400'] = Math.max(0,E.contado['GALL400']-1);
+  const cj = cajaCalculada();
+  E.caja.efectivo = String(cj.efectivo - 500);
+  E.caja.transferencia = String(cj.transferencia);
+  E.caja.qr = String(cj.qr);
+  ir('cierre');
+}
+
+/* ============================================================
+   render
+   ============================================================ */
+const PERFILES = {
+  repartidor:{nombre:'Marcos · repartidor', ve:['hoy','vender','encargue','cierre','clientes']},
+  deposito:  {nombre:'Depósito · admin',    ve:['hoy','carga','encargue','cierre','clientes','productos']},
+};
+function cambiarPerfil(){
+  E.perfil = E.perfil==='repartidor' ? 'deposito' : 'repartidor';
+  if(!PERFILES[E.perfil].ve.includes(E.vista)) E.vista='hoy';
+  render();
+}
+function ir(v){ E.vista=v; $$('nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===v)); render(); window.scrollTo({top:0,behavior:'smooth'}); }
+function render(){
+  const ve = PERFILES[E.perfil].ve;
+  $$('nav button').forEach(b=>b.classList.toggle('oculta', !ve.includes(b.dataset.v)));
+  if(!ve.includes(E.vista)) E.vista='hoy';
+  $('#v-hoy').innerHTML       = vHoy();
+  $('#v-carga').innerHTML     = vCarga();
+  $('#v-vender').innerHTML    = vVender();
+  $('#v-encargue').innerHTML  = vEncargue();
+  $('#v-cierre').innerHTML    = vCierre();
+  $('#v-clientes').innerHTML  = vClientes();
+  $('#v-productos').innerHTML = vProductos();
+  $$('section').forEach(s=>s.classList.toggle('on', s.id==='v-'+E.vista));
+  $('#chip-fecha').textContent = HOY.toLocaleDateString('es-AR',{weekday:'long',day:'numeric',month:'long'});
+  $('#chip-repartidor').textContent = REPARTIDOR + ' · ' + DISPOSITIVO;
+  $('#chip-estado').textContent = E.cargaConfirmada ? 'en ruta' : 'jornada sin cargar';
+  $('#chip-estado').classList.toggle('on', E.cargaConfirmada);
+  $('#chip-perfil').textContent = PERFILES[E.perfil].nombre;
+  $('#pie-asientos').textContent = E.asientos.length;
+  renderWaDrawer();
+}
+$$('nav button').forEach(b=>b.onclick=()=>ir(b.dataset.v));
+render();
+</script>
+</body>
+</html>

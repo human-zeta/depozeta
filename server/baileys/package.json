@@ -1,0 +1,13 @@
+{
+  "name": "depo-zeta-baileys",
+  "private": true,
+  "type": "module",
+  "description": "Alternativa no oficial de WhatsApp — ver DZ-BAI-01 antes de correr esto.",
+  "scripts": {
+    "start": "node index.mjs"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.7.23",
+    "qrcode-terminal": "^0.12.0"
+  }
+}

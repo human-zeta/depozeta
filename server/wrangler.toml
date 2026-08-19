@@ -1,0 +1,14 @@
+name = "depo-zeta-whatsapp"
+main = "whatsapp-webhook.mjs"
+compatibility_date = "2026-08-19"
+
+# Secretos — se cargan con `wrangler secret put NOMBRE`, nunca acá ni en el repo:
+#   WA_VERIFY_TOKEN     el que elegís vos, se lo pasás a Meta al configurar el webhook
+#   WA_ACCESS_TOKEN     token del System User de Meta Business Manager
+#   WA_PHONE_NUMBER_ID  el id que Meta asigna al número dado de alta
+
+# Para sumar D1 cuando exista el esquema de sincronización (F1):
+# [[d1_databases]]
+# binding = "DB"
+# database_name = "depo-zeta"
+# database_id = "..."
