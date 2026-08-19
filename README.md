@@ -13,6 +13,10 @@ Repo: https://github.com/human-zeta/depozeta (privado). Destino planeado:
 ## Estructura del repositorio
 
 ```
+index.html              Redirect a app/ — GitHub Pages necesita algo en la raíz,
+                         si no cae a mostrar este README (vía Jekyll)
+.nojekyll                Le dice a Pages que sirva los archivos tal cual, sin
+                         procesar nada como Jekyll
 app/                    El aplicativo, sin build ni dependencias
 ├── index.html          Prototipo F0 navegable — abre con doble clic
 └── core/               Motores puros (F1): stock, cierre, sugerido
