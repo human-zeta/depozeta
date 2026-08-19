@@ -4,6 +4,9 @@
 depósito con el mismo rigor con el que [Caja Zeta](../cajazeta/) trata cada peso que entra
 a la caja.
 
+Repo: https://github.com/human-zeta/depozeta (privado). Destino planeado:
+`depozeta.hg-vl.com`, mismo patrón de distribución que zzz en `hg-vl.com`.
+
 > **Carga − ventas − devoluciones = 0.**
 > Si no da cero, hay faltante. Y el faltante se ve el mismo día, no a fin de mes.
 
