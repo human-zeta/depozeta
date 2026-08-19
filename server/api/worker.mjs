@@ -42,6 +42,11 @@ import {
 const ORIGENES_PERMITIDOS = [
   'https://depozeta.hg-vl.com',
   'https://human-zeta.github.io',
+  'null',   // abrir app/index.html con doble clic manda Origin: null —
+            // aceptable acá porque la sesión viaja en el header
+            // Authorization (localStorage, aislado por origen), nunca en
+            // una cookie: otro origen no puede ni leer el token para
+            // armar el header, así que este permiso no habilita CSRF.
 ];
 
 function encabezadosCors(req) {
