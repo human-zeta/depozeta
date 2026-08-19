@@ -1,0 +1,16 @@
+name = "depo-zeta-api"
+main = "worker.mjs"
+compatibility_date = "2026-08-19"
+
+# Secretos — se cargan con `wrangler secret put NOMBRE`, nunca acá ni en el repo:
+#   BOOTSTRAP_TOKEN   elegido por el dueño del proyecto. Sin este token,
+#                     /api/bootstrap no crea el primer ADMIN aunque la base
+#                     esté vacía — cierra la ventana de carrera con quien
+#                     encuentre la URL antes que el dueño real.
+
+[[d1_databases]]
+binding = "DB"
+database_name = "depo-zeta"
+database_id = "local-dev"   # con `wrangler dev` (sin --remote) alcanza cualquier valor;
+                             # al desplegar de verdad, reemplazar por el id real de
+                             # `wrangler d1 create depo-zeta`

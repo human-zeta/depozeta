@@ -210,29 +210,40 @@ pendientes de clientes que tocan hoy, para que el depósito los sume a lo que ya
 cargar. **No los suma solo** — el cálculo de «sugerido» sigue siendo el histórico de
 siempre, sin este dato todavía. Es un aviso, no una automatización.
 
-## Perfiles
+## Perfiles y roles
 
-Dos, porque la operación tiene dos lugares distintos y no ven lo mismo.
+Tres roles, no dos — desde la noche del 19 de agosto, con login real detrás
+(**`DZ-SEG-01`**, clave + TOTP obligatorio, servidor propio). **ADMIN** se
+sumó pensando en si el producto algún día sirve a más de una empresa,
+aunque hoy sea de una sola; **DEPOSITO** puede crear cuentas de
+**REPARTIDOR** —el pedido literal del dueño del proyecto—, y nadie crea a
+un par ni a un superior.
 
-| | Repartidor | Depósito |
-|---|---|---|
-| **Hoy** | Su ruta, con horarios y navegación | Estado de las camionetas |
-| **Carga** | — | Arma y firma la carga |
-| **Vender** | Vende en la calle | — |
-| **Cierre** | Rinde lo suyo | Control por repartidor y faltante |
-| **Clientes** | Cartera completa, la necesita para vender | Igual |
-| **Precios** | — | Costo de reposición, margen, remarcación |
+| | Repartidor | Depósito | Admin |
+|---|---|---|---|
+| **Hoy** | Su ruta, con horarios y navegación | Estado de las camionetas | Igual que depósito |
+| **Carga** | — | Arma y firma la carga | ✓ |
+| **Vender** | Vende en la calle | — | — |
+| **Cierre** | Rinde lo suyo | Control por repartidor y faltante | ✓ |
+| **Clientes** | Cartera completa, la necesita para vender | Igual | Igual |
+| **Precios** | — | Costo de reposición, margen, remarcación | ✓ |
+| **Usuarios** | — | Crea y desactiva REPARTIDOR | Crea y desactiva DEPOSITO y REPARTIDOR |
 
 **Lo que realmente se separa es el margen.** El repartidor necesita el precio de venta y no
 necesita el costo. Que el costo de reposición y el margen por producto no salgan de la
 camioneta no es desconfianza: es que ese número, contado en el mostrador de un cliente,
 vuelve como una negociación de precio.
 
-**El límite honesto:** mientras no haya servidor, esconder el costo es una decisión de
-interfaz, no de seguridad — quien tenga el celular puede abrir las herramientas del
-navegador y verlo igual. **La separación real llega con la sincronización de F1: el servidor
-no le manda al repartidor los datos que no le corresponden.** Hasta entonces se dice así, sin
-prometer de más.
+**Esto ya no es un límite de interfaz — es un límite de servidor, verificado.** Hasta la
+noche del 19 de agosto, esconder el costo era una decisión de interfaz nomás: quien tenía
+el celular podía abrir las herramientas del navegador y verlo igual, y así quedó
+documentado durante todo F0. Dejó de ser así con `DZ-SEG-01`: el rol viene de una sesión
+autenticada contra un servidor real (Cloudflare Worker + D1), y un REPARTIDOR que le pida
+directamente a la API los datos de un DEPOSITO recibe `403 NO_AUTORIZADO` — probado en
+vivo, no sólo escrito. Lo que sigue sin estar conectado es **el resto del libro**: ventas,
+clientes y productos siguen siendo los datos de ejemplo de F0, en memoria del navegador,
+mientras la sincronización de ese libro no se construya — ver `DZ-SEG-01` para el detalle
+exacto de qué quedó real y qué no esa noche.
 
 ## El panel de WhatsApp
 

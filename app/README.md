@@ -4,8 +4,8 @@ Web sin build ni dependencias, igual que el panel de Caja Zeta y la app zzz.
 
 | Archivo | Qué es |
 |---|---|
-| `index.html` | Prototipo F0. Seis vistas sobre el libro de asientos real: Hoy, Carga, Vender, Cierre, Clientes, Precios. Dos perfiles y optimizador de ruta |
-| `core/` | **Vacío.** Los motores se extraen del prototipo en F1, para probarlos con la misma suite en Node y en el navegador |
+| `index.html` | El aplicativo. Login real (clave + TOTP) contra `server/api/`, seis vistas sobre el libro de asientos: Hoy, Carga, Vender, Cierre, Clientes, Precios, más Usuarios. Tres roles, optimizador de ruta |
+| `core/` | Motores puros de seguridad, probados en Node y en el navegador con la misma suite (66/66): `totp.js`, `autorizacion.js`, `autenticacion.js`, `usuarios.js`, `auditoria.js`. Ver [`DZ-SEG-01`](../docs/tecnico/04-seguridad-dz-seg-01.md). Los motores del libro (stock, cierre, sugerido) siguen dentro de `index.html`, no extraídos todavía |
 
 ## Qué es de verdad y qué es maqueta
 
@@ -28,10 +28,33 @@ el equipo real es `navigator.geolocation`), el histórico de compra por cliente,
 visita, y el «orden de siempre» de la ruta — que está generado, así que el ahorro del
 optimizador se ve mucho mayor de lo que sería sobre una ruta rodada.
 
-**Es interfaz, no seguridad:** el perfil `repartidor` esconde costos y márgenes, pero el
-estado vive en el dispositivo. La separación real es del servidor de F1.
+**Ya es servidor, no sólo interfaz:** quién ve costos y márgenes lo decide el rol de la
+sesión (ADMIN, DEPOSITO o REPARTIDOR), verificado por `server/api/` en cada pedido — un
+REPARTIDOR que le pida los datos de un DEPOSITO directamente a la API recibe `403`, no
+sólo una pantalla distinta. Ver [`DZ-SEG-01`](../docs/tecnico/04-seguridad-dz-seg-01.md).
 
-**No está:** persistencia, sincronización, remito compartible, envases, lotes.
+**No está:** persistencia ni sincronización del libro operativo (clientes, productos,
+ventas, asientos, encargues siguen en memoria del navegador, F0), remito compartible,
+envases, lotes.
+
+## Login y roles
+
+La app abre con una pantalla de login, no directo al libro. Primer paso: la URL de
+`server/api/` (una sola vez, queda en `localStorage` del dispositivo, nunca en este
+repo — mismo patrón que la clave de Google Maps más abajo). Con eso configurado:
+
+1. **Usuario + clave** contra `POST /api/login`. Si es la primera vez, el servidor
+   responde `ENROLAR` y la app muestra el QR (vía `api.qrserver.com` — única dependencia
+   externa de todo el prototipo, con el secreto siempre visible como texto por si el QR no
+   carga) para sumar la cuenta a cualquier app TOTP (Google Authenticator, Authy, etc.).
+2. **Código de 6 dígitos** contra `POST /api/login/totp`. Ahí se abre la sesión de verdad.
+
+El chip del encabezado ya no es un selector de perfil — muestra la sesión real (usuario y
+rol) con un botón **Salir**. La pestaña **Usuarios** (🔐) lista las cuentas y permite altas
+y bajas: DEPOSITO sólo puede crear REPARTIDOR, ADMIN cualquier rol menor al suyo — nadie
+crea un par ni un superior, aplicado por el servidor, no por lo que el `<select>` deje
+elegir en pantalla. Backend, rutas y cómo correrlo en local:
+[`server/api/README.md`](../server/api/README.md).
 
 ## Encargue
 
@@ -87,4 +110,14 @@ No la escribas en el HTML: una clave en el código termina publicada.
 
 ## Correr
 
-Doble clic. Para el modo impresión, Cmd+P.
+Doble clic en `index.html` para la interfaz — pero pasar de la pantalla de login necesita
+`server/api/` corriendo (`wrangler dev`, ver su README) y al menos el ADMIN creado con
+`/api/bootstrap`. Sin eso, se puede mirar la pantalla de login pero no entrar.
+
+Para correr los 66 tests de los motores de seguridad (parado en `app/`):
+
+```bash
+node core/test/run.js
+```
+
+Para el modo impresión dentro de la app: Cmd+P.

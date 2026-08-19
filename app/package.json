@@ -1,0 +1,11 @@
+{
+  "name": "depo-zeta-app",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Front y motores de depo zeta — libro de asientos y seguridad. Sin build ni dependencias.",
+  "scripts": {
+    "test": "node core/test/run.js",
+    "serve": "python3 -m http.server 8801"
+  }
+}

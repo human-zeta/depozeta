@@ -18,9 +18,13 @@ index.html              Redirect a app/ — GitHub Pages necesita algo en la ra�
 .nojekyll                Le dice a Pages que sirva los archivos tal cual, sin
                          procesar nada como Jekyll
 app/                    El aplicativo, sin build ni dependencias
-├── index.html          Prototipo F0 navegable — abre con doble clic
-└── core/               Motores puros (F1): stock, cierre, sugerido
-server/                 Backend F1, en construcción
+├── index.html          Prototipo navegable — abre con doble clic. Login y
+│                       roles ya son reales (contra server/api/); el resto
+│                       del libro (ventas, clientes, productos) sigue F0
+└── core/               Motores puros, probados en Node (66/66 — TOTP, roles
+                        y su jerarquía, clave+sesión, auditoría, usuarios)
+server/                 Backend
+├── api/                  Auth real: Cloudflare Worker + D1 — DZ-SEG-01
 ├── whatsapp-webhook.mjs  Cloud API oficial (elegida) — Cloudflare Worker
 └── baileys/               Alternativa no oficial, con advertencia — DZ-BAI-01
 docs/
@@ -39,7 +43,9 @@ docs/
 | [`docs/tecnico/02-whatsapp-cloud-api-dz-wsp-01.md`](docs/tecnico/02-whatsapp-cloud-api-dz-wsp-01.md) | WhatsApp Cloud API (DZ-WSP-01): checklist de Meta, número nuevo vs. coexistencia, precios con fecha, arquitectura del webhook | Desarrollo |
 | [`server/whatsapp-webhook.mjs`](server/whatsapp-webhook.mjs) | Scaffold del Worker de Cloudflare para el webhook — sin probar contra Meta real todavía | Desarrollo |
 | [`docs/tecnico/03-baileys-alternativa-dz-bai-01.md`](docs/tecnico/03-baileys-alternativa-dz-bai-01.md) | Baileys (DZ-BAI-01): la alternativa no oficial — advertencia de baneo primero, para qué serviría, el scaffold | Desarrollo |
-| [`app/index.html`](app/index.html) | Prototipo F0: seis vistas sobre el libro de asientos real, dos perfiles, optimizador de ruta local y 36 clientes de ejemplo | Todos |
+| [`docs/tecnico/04-seguridad-dz-seg-01.md`](docs/tecnico/04-seguridad-dz-seg-01.md) | Seguridad (DZ-SEG-01): clave + TOTP, los tres roles y su jerarquía, login en dos pasos, sesiones, los bugs reales al probarlo | Desarrollo |
+| [`server/api/README.md`](server/api/README.md) | Backend real: cómo correrlo en local (`wrangler dev`), el primer ADMIN, la tabla de rutas, qué falta para desplegarlo de verdad | Desarrollo |
+| [`app/index.html`](app/index.html) | El aplicativo: login real, seis vistas sobre el libro de asientos, tres roles, optimizador de ruta local y 36 clientes de ejemplo | Todos |
 
 Prototipo navegable publicado: https://claude.ai/code/artifact/68184935-c60f-4a8d-ae02-33256d0683df
 **El canonical es este repo; el artifact es la demo.**
@@ -59,12 +65,22 @@ Cuatro definiciones del 18 de agosto de 2026. Cada una borró trabajo.
 
 ## Cómo abrir el prototipo
 
-Doble clic en `app/index.html`. No necesita servidor ni instalación.
+Doble clic en `app/index.html` — pero desde la noche del 19 de agosto la primera pantalla
+pide la URL de una API y un login real (clave + TOTP), porque el acceso ya no es un botón
+para cambiar de perfil: es una sesión de servidor. Para entrar hace falta `server/api/`
+corriendo — instrucciones en su [README](server/api/README.md) — y un usuario creado ahí
+(el primer ADMIN se crea una sola vez, con `/api/bootstrap`). Ver `DZ-SEG-01` para el
+diseño completo.
+
+Una vez adentro:
 
 - **«Simular la jornada entera»** carga la camioneta, hace las ventas del día, deja una
   no-venta por precio y un faltante de dos unidades — que es lo que pasa de verdad.
-- El chip **«Marcos · repartidor»** del encabezado cambia de perfil. El depósito ve costos,
-  márgenes y el control por repartidor; el repartidor no.
+- El encabezado muestra la sesión real (usuario y rol) con un botón **Salir**. Quién ve
+  costos, márgenes y el control por repartidor ya no lo decide un botón de la interfaz: lo
+  decide el rol de la cuenta (ADMIN, DEPOSITO o REPARTIDOR), verificado por el servidor.
+  DEPOSITO y ADMIN pueden dar de alta cuentas nuevas desde la pestaña **Usuarios** —
+  DEPOSITO sólo REPARTIDOR, ADMIN cualquier rol menor al suyo.
 - El bloque **Recorrido** compara el orden de siempre contra el más corto, avisa a qué
   paradas llegás fuera de horario, y abre cada cliente en Google Maps o en Waze.
 - **Clientes → Zonas a evitar**: cargá un punto (tipeado o tocando el mapa) y un radio. El
@@ -95,26 +111,37 @@ Para exportar a PDF: Cmd+P. Tiene hoja de impresión que invierte a fondo claro.
 
 ## Falta en el repositorio
 
-- `docs/tecnico/04-requerimientos-dz-ers-01.md` — la especificación SMART al estilo
+- `docs/tecnico/05-requerimientos-dz-ers-01.md` — la especificación SMART al estilo
   CZ-ERS-01. Se escribe después de probar el prototipo en una jornada real.
 - `docs/identidad/sistema-visual-depo-zeta.md` — la paleta y los componentes están hoy
   solo declarados dentro del prototipo.
-- `app/core/` — los motores extraídos del prototipo (stock, cierre, rutas), con su suite
-  corriendo en Node y en el navegador.
-- Los permisos de verdad: hoy el perfil filtra la interfaz, no los datos. Se resuelve en F1
-  con el servidor.
-- El servidor de sincronización, con su prueba de que un asiento no se pierde. El webhook
-  de WhatsApp en `server/` es el primer paso —sin probar contra Meta real, ver DZ-WSP-01.
+- **El resto del libro operativo, sincronizado.** `clientes`, `productos`, `ventas`,
+  `asientos`, `encargues`, `zonas_evitar` ya tienen tabla en `server/api/schema.sql`, pero
+  el Worker todavía no expone rutas para ellos — siguen siendo datos de ejemplo en memoria
+  del navegador. Auth y usuarios (lo de abajo) sí quedaron reales y sincronizados.
+- **Desplegar `server/api/` a una cuenta de Cloudflare real** — hoy sólo se probó en local
+  con `wrangler dev`. Ídem el webhook de WhatsApp: sin probar contra Meta real, ver
+  DZ-WSP-01. Ninguno de los dos está en la nube todavía.
 - La verificación de Meta Business, el alta del número y el despliegue real del Worker de
   WhatsApp — los tres le tocan al dueño del proyecto, no se pueden completar por él.
+
+## Roles y acceso — real desde el 19 de agosto
+
+Login con clave + TOTP obligatorio, tres roles (ADMIN, DEPOSITO, REPARTIDOR), verificado
+por un servidor propio (Cloudflare Worker + D1), no por la interfaz. DEPOSITO puede crear
+cuentas REPARTIDOR; nadie crea un par ni un superior. 66/66 tests en Node, más pruebas en
+vivo contra el servidor real. Diseño completo, qué se probó y qué falta:
+[`DZ-SEG-01`](docs/tecnico/04-seguridad-dz-seg-01.md).
 
 ## Pendientes
 
 1. **La grafía del nombre.** zzz va en minúscula por argumento de marca, Caja Zeta en
    Title Case. **depo zeta** está en minúscula por descarte, sin argumento propio.
-2. **Producto propio o herramienta interna.** Si se vende a otras distribuidoras cambia
-   todo: multi-empresa, soporte, precio.
+2. **Producto propio o herramienta interna.** Parcialmente decidido: existe rol ADMIN
+   pensando en que otras empresas lo usen algún día, pero hoy sigue siendo de una sola
+   operación — falta confirmar si se llega a construir multi-empresa de verdad (soporte,
+   precio, aislamiento de datos entre cuentas).
 3. **Quién carga la cartera inicial.** Importar de una planilla es una tarde; tipearla de
    cero es una semana.
-4. **Probarlo en una jornada real** antes de escribir una línea más. El próximo editor de
-   este repo es un reparto, no un documento.
+4. **Probarlo en una jornada real** antes de escribir una línea más del libro operativo.
+   El próximo editor de este repo es un reparto, no un documento.

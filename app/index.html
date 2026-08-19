@@ -191,6 +191,26 @@ select option{background:#0d1a14}
   display:flex;align-items:center;justify-content:center;padding:14px}
 #panel[hidden]{display:none}
 .panel-caja{width:100%;max-width:760px;max-height:88vh;overflow:auto;padding:16px 17px}
+
+/* ---------- pantalla de login: tapa todo, no es un panel flotante ---------- */
+#pantalla-login{
+  position:fixed; inset:0; z-index:80; align-items:center; justify-content:center;
+  padding:20px; background:var(--fondo);
+}
+/* el display:flex tiene que ceder ante [hidden] — un selector de ID sin
+   esto le gana en especificidad a la regla [hidden]{display:none} del
+   navegador, y la pantalla queda visible aunque hidden=true. */
+#pantalla-login:not([hidden]){display:flex}
+#pantalla-login::before{
+  content:""; position:fixed; inset:-25%; z-index:-1;
+  background:
+    radial-gradient(38rem 30rem at 12% 8%, rgba(47,191,113,.20), transparent 60%),
+    radial-gradient(32rem 26rem at 88% 22%, rgba(255,122,89,.13), transparent 62%);
+  filter:blur(48px);
+}
+.login-caja{width:100%;max-width:400px;padding:26px 24px}
+.login-aviso{font-size:12.5px;color:var(--tenue);line-height:1.55;margin-bottom:16px}
+.login-qr{background:#fff;padding:12px;border-radius:12px;display:inline-block;margin:8px 0}
 .panel-cab{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px}
 .panel-cab .eyebrow{margin:0}
 #mapa{width:100%;height:0;border-radius:14px;overflow:hidden}
@@ -226,7 +246,17 @@ select option{background:#0d1a14}
 </head>
 <body>
 
-<div class="wrap">
+<div id="pantalla-login">
+  <div class="login-caja glass">
+    <div class="marca" style="margin-bottom:4px">
+      <h1>depo <span>zeta</span></h1>
+    </div>
+    <div class="sub" style="margin-bottom:20px">DZ-SEG-01 · acceso</div>
+    <div id="login-cuerpo"></div>
+  </div>
+</div>
+
+<div class="wrap" id="app-wrap" hidden>
   <header>
     <div class="marca">
       <h1>depo <span>zeta</span></h1>
@@ -236,7 +266,8 @@ select option{background:#0d1a14}
       <span class="chip on" id="chip-fecha">—</span>
       <span class="chip" id="chip-repartidor">—</span>
       <span class="chip" id="chip-estado">jornada abierta</span>
-      <button class="chip perfil" id="chip-perfil" onclick="cambiarPerfil()">—</button>
+      <span class="chip perfil" id="chip-perfil">—</span>
+      <button class="chip" id="chip-salir" onclick="salir()">Salir</button>
     </div>
   </header>
 
@@ -247,11 +278,14 @@ select option{background:#0d1a14}
   <section id="v-cierre"></section>
   <section id="v-clientes"></section>
   <section id="v-productos"></section>
+  <section id="v-usuarios"></section>
 
   <div class="pie">
-    Prototipo con datos de ejemplo. El stock se calcula desde el libro de asientos
-    (<code id="pie-asientos">0</code> asientos generados en esta sesión), igual que en
-    <code>DZ-MOD-01</code>. Nada se guarda: al recargar vuelve al estado inicial.
+    La sesión es real —login con clave y TOTP contra <code id="pie-api-url">la API</code>—.
+    Los datos que ves abajo (ventas, clientes, productos, el libro de asientos:
+    <code id="pie-asientos">0</code> generados en esta sesión) siguen siendo los de ejemplo
+    de F0, en memoria del navegador — no sincronizan con el servidor todavía. Ver
+    <code>DZ-SEG-01</code>.
   </div>
 </div>
 
@@ -283,6 +317,7 @@ select option{background:#0d1a14}
   <button data-v="cierre" data-perfil="ambos"><span class="ico">⚖️</span>Cierre</button>
   <button data-v="clientes" data-perfil="ambos"><span class="ico">👥</span>Clientes</button>
   <button data-v="productos" data-perfil="deposito"><span class="ico">🏷️</span>Precios</button>
+  <button data-v="usuarios" data-perfil="deposito"><span class="ico">🔐</span>Usuarios</button>
 </div></nav>
 
 <script>
@@ -420,11 +455,46 @@ const E = {
   encargueCancelando:'', entregandoEncargue:'',
   clienteDirAprox:null,
   vista:'hoy',
+  sesion:null, loginPaso:'clave', loginError:'', loginCargando:false,
+  loginTicket:'', loginSecreto:'', loginUri:'', loginUsuario:'',
+  usuariosLista:[], usuariosCargando:false, usuariosError:'', altaUsuarioError:'',
 };
 const MOTIVOS_ENCARGUE = ['cliente desistió','no se consiguió','se venció el plazo','otro'];
 
+/* ============================================================
+   sesión real · DZ-SEG-01
+   La URL de la API se pide una vez y queda en este dispositivo,
+   igual que la key de Google Maps — nunca escrita en el código.
+   El token de sesión también: localStorage, nunca en el archivo.
+   ============================================================ */
+const API_LS = 'dz.apiUrl', TOKEN_LS = 'dz.token';
+const getApiUrl = () => { try{ return localStorage.getItem(API_LS)||''; }catch(e){ return ''; } };
+const setApiUrl  = v => { try{ localStorage.setItem(API_LS, v.replace(/\/$/,'')); }catch(e){} };
+const getToken   = () => { try{ return localStorage.getItem(TOKEN_LS)||''; }catch(e){ return ''; } };
+const setToken    = v => { try{ v ? localStorage.setItem(TOKEN_LS,v) : localStorage.removeItem(TOKEN_LS); }catch(e){} };
+
+async function api(ruta, opciones={}){
+  const base = getApiUrl();
+  if(!base) throw Object.assign(new Error('Falta configurar la URL de la API.'), {codigo:'SIN_API'});
+  const headers = Object.assign({'Content-Type':'application/json'}, opciones.headers||{});
+  const token = getToken();
+  if(token) headers.Authorization = 'Bearer '+token;
+  let res;
+  try{
+    res = await fetch(base+ruta, Object.assign({}, opciones, {headers}));
+  }catch(e){
+    throw Object.assign(new Error('No se pudo conectar con la API en '+base+'. ¿Está corriendo?'), {codigo:'SIN_CONEXION'});
+  }
+  const datos = await res.json().catch(()=>({}));
+  if(!res.ok) throw Object.assign(new Error(datos.mensaje||('HTTP '+res.status)), {codigo:datos.error||'ERROR'});
+  return datos;
+}
+
 const prod = id => PRODUCTOS.find(p=>p.id===id);
 const cli  = id => CLIENTES.find(c=>c.id===id);
+/* admin ve/hace todo lo que depósito, en las vistas que ya existían en F0
+   —más la gestión de usuarios, que es sólo suya y de depósito—. */
+const esDeposito = () => E.perfil==='deposito' || E.perfil==='admin';
 
 /* ---------------- motor ---------------- */
 function asentar(tipo, origen, destino, producto, cantidad, extra){
@@ -640,13 +710,12 @@ function vHoy(){
 
   ${!E.cargaConfirmada && ruta.length ? `<div class="card glass" style="border-color:rgba(255,122,89,.3)">
     <div class="eyebrow" style="color:var(--coral)">Antes de salir</div>
-    <div style="font-size:13.5px;color:var(--tenue)">${E.perfil==='deposito'
+    <div style="font-size:13.5px;color:var(--tenue)">${esDeposito()
       ? 'La camioneta de Marcos está vacía. No se puede vender lo que no se cargó — es la invariante 4 de <span class="mono">DZ-MOD-01</span>.'
-      : 'El depósito todavía no te cargó la camioneta.'}</div>
+      : 'El depósito todavía no te cargó la camioneta — avisale.'}</div>
     <div style="margin-top:11px;display:flex;gap:7px;flex-wrap:wrap">
-      ${E.perfil==='deposito'
-        ? `<button class="btn pri" onclick="ir('carga')">Ir a cargar</button>`
-        : `<button class="btn pri" onclick="cambiarPerfil()">Entrar como depósito</button>`}
+      ${esDeposito()
+        ? `<button class="btn pri" onclick="ir('carga')">Ir a cargar</button>` : ''}
       <button class="btn" onclick="simular()">Simular la jornada entera</button>
     </div></div>` : ''}
 
@@ -724,7 +793,7 @@ function bloqueRuta(ruta){
 }
 
 function vCarga(){
-  if(E.perfil!=='deposito') return `<h2>Carga</h2>
+  if(!esDeposito()) return `<h2>Carga</h2>
     <div class="card glass vacio">La carga la arma el depósito.<br>
     Vos salís con lo que te firmaron y lo rendís en <b>Cierre</b>.</div>`;
   const ruta = rutaDelDia();
@@ -923,7 +992,7 @@ function bloqueEncarguesPendientes(){
         <div class="dir">${detalle}</div>
         ${sinVincular.length?`<div class="ref" style="font-style:normal;color:var(--coral)">
           Falta cargar ${sinVincular.map(r=>'«'+r.descripcion+'»').join(', ')} como producto antes de poder entregarlo.
-          ${E.perfil==='deposito'?sinVincular.map(r=>{
+          ${esDeposito()?sinVincular.map(r=>{
             const i = enc.renglones.indexOf(r);
             return `<select style="margin-top:6px;width:auto;display:inline-block" onchange="vincularProductoEspecial('${enc.id}',${i},this.value)">
               <option value="">Vincular «${r.descripcion}» a…</option>
@@ -932,7 +1001,7 @@ function bloqueEncarguesPendientes(){
           }).join(''):'Se vincula desde el perfil depósito.'}
           </div>`:''}
         <div class="acc">
-          ${enc.estado==='pendiente'&&E.perfil==='deposito'?`<button class="btn chico" onclick="marcarPreparado('${enc.id}')">Marcar preparado</button>`:''}
+          ${enc.estado==='pendiente'&&esDeposito()?`<button class="btn chico" onclick="marcarPreparado('${enc.id}')">Marcar preparado</button>`:''}
           ${listo
             ?`<button class="btn chico pri" onclick="E.entregandoEncargue=(E.entregandoEncargue==='${enc.id}'?'':'${enc.id}');render()">Entregar</button>`
             :`<span class="badge no">falta stock en camioneta</span>`}
@@ -1013,7 +1082,7 @@ function vCierre(){
       <tbody>${cajaFilas}</tbody></table></div>
   </div>
 
-  ${E.perfil==='deposito'?`<div class="card glass">
+  ${esDeposito()?`<div class="card glass">
     <div class="eyebrow">Por repartidor</div>
     <div class="tabla-scroll"><table>
       <thead><tr><th>Repartidor</th><th class="num">Vendido</th><th class="num">Paradas</th><th class="num">Faltante</th></tr></thead>
@@ -1147,7 +1216,7 @@ function bloqueZonas(){
 }
 
 function vProductos(){
-  if(E.perfil!=='deposito') return `<h2>Precios</h2>
+  if(!esDeposito()) return `<h2>Precios</h2>
     <div class="card glass vacio">El costo de reposición y el margen los ve el depósito.<br>
     El repartidor vende con la lista del cliente, que ya la tiene en <b>Vender</b>.</div>`;
   const filas = PRODUCTOS.map(p=>{
@@ -1198,6 +1267,93 @@ function vProductos(){
   ${bloqueAgregarProducto()}`;
 }
 
+function vUsuarios(){
+  const miRol = E.sesion.perfil.rol;
+  const rolesQuePuedoCrear = miRol==='ADMIN' ? ['DEPOSITO','REPARTIDOR'] : ['REPARTIDOR'];
+  const NIVEL = {ADMIN:30, DEPOSITO:20, REPARTIDOR:10};
+
+  const filas = E.usuariosLista.map(u=>{
+    const puedoGestionarlo = NIVEL[u.rol] < NIVEL[miRol] && u.usuario !== E.sesion.perfil.usuario;
+    return `<tr>
+      <td><div style="font-weight:540">${u.nombre}${!u.activo?' <span class="badge no">INACTIVO</span>':''}</div>
+          <div class="mono" style="font-size:10.5px;color:var(--mudo)">${u.usuario}</div></td>
+      <td class="num">${u.rol}</td>
+      <td class="num" style="white-space:nowrap">
+        ${puedoGestionarlo && u.activo?`
+          <button class="btn chico" onclick="reiniciarTotpReal('${u.usuario}')">Reiniciar TOTP</button>
+          <button class="btn chico sec" onclick="desactivarUsuarioReal('${u.usuario}')">Desactivar</button>
+        `:''}
+      </td>
+    </tr>`;
+  }).join('');
+
+  return `
+  <h2>Usuarios</h2>
+  <p class="lead">Cuentas reales, contra la API — clave y TOTP, no un botón que alterna. Vos (${miRol.toLowerCase()}) podés dar de alta ${rolesQuePuedoCrear.map(r=>r.toLowerCase()).join(' y ')}.</p>
+
+  <div class="card glass">
+    <div class="eyebrow">Cuentas</div>
+    ${E.usuariosCargando?'<div class="vacio">Cargando…</div>':''}
+    ${E.usuariosError?`<div class="nota" style="border-color:var(--rojo)">${E.usuariosError} <button class="btn chico" onclick="cargarUsuarios()">Reintentar</button></div>`:''}
+    ${!E.usuariosCargando && !E.usuariosError?`<div class="tabla-scroll"><table>
+      <thead><tr><th>Nombre</th><th class="num">Rol</th><th class="num"></th></tr></thead>
+      <tbody>${filas||'<tr><td colspan="3" class="vacio">Sin usuarios todavía.</td></tr>'}</tbody></table></div>`:''}
+  </div>
+
+  <div class="card glass">
+    <div class="eyebrow">Nueva cuenta</div>
+    <div class="fila">
+      <div class="campo" style="flex:1;min-width:150px"><label>Nombre</label><input id="in-usu-nombre" placeholder="Nombre y apellido"></div>
+      <div class="campo" style="flex:1;min-width:150px"><label>Usuario</label><input id="in-usu-usuario" placeholder="sin espacios"></div>
+    </div>
+    <div class="fila">
+      <div class="campo" style="width:150px"><label>Rol</label>
+        <select id="in-usu-rol">${rolesQuePuedoCrear.map(r=>`<option value="${r}">${r}</option>`).join('')}</select></div>
+      <div class="campo" style="flex:1;min-width:180px"><label>Clave inicial</label><input id="in-usu-clave" type="password" placeholder="12 caracteres o más"></div>
+    </div>
+    ${E.altaUsuarioError?`<div class="nota" style="border-color:var(--rojo)">${E.altaUsuarioError}</div>`:''}
+    <button class="btn pri" onclick="guardarUsuarioNuevo()">Crear cuenta</button>
+    <div class="nota">La persona hace su propio login con esta clave y enrola su TOTP la primera vez — nadie más ve su código.</div>
+  </div>`;
+}
+
+async function cargarUsuarios(){
+  E.usuariosCargando = true; E.usuariosError=''; render();
+  try{
+    E.usuariosLista = await api('/api/usuarios');
+  }catch(e){
+    E.usuariosError = e.message;
+  }
+  E.usuariosCargando = false;
+  render();
+}
+
+async function guardarUsuarioNuevo(){
+  const nombre = ($('#in-usu-nombre').value||'').trim();
+  const usuario = ($('#in-usu-usuario').value||'').trim();
+  const rol = $('#in-usu-rol').value;
+  const clave = $('#in-usu-clave').value||'';
+  if(!nombre || !usuario || !clave){ E.altaUsuarioError='Faltan datos.'; render(); return; }
+  E.altaUsuarioError='';
+  try{
+    await api('/api/usuarios', {method:'POST', body:JSON.stringify({usuario,nombre,rol,clave})});
+    $('#in-usu-nombre').value=''; $('#in-usu-usuario').value=''; $('#in-usu-clave').value='';
+    await cargarUsuarios();
+  }catch(e){
+    E.altaUsuarioError = e.message;
+    render();
+  }
+}
+
+async function desactivarUsuarioReal(usuario){
+  try{ await api('/api/usuarios/'+encodeURIComponent(usuario)+'/desactivar', {method:'POST'}); await cargarUsuarios(); }
+  catch(e){ E.usuariosError = e.message; render(); }
+}
+async function reiniciarTotpReal(usuario){
+  try{ await api('/api/usuarios/'+encodeURIComponent(usuario)+'/reiniciar-totp', {method:'POST'}); await cargarUsuarios(); }
+  catch(e){ E.usuariosError = e.message; render(); }
+}
+
 function bloqueAgregarProducto(){
   return `<div class="card glass">
     <div class="eyebrow">Agregar producto</div>
@@ -1241,6 +1397,131 @@ function bloqueAgregarProducto(){
 const KEY_LS = 'dz.gkey';
 const getKey = () => { try{ return localStorage.getItem(KEY_LS)||''; }catch(e){ return ''; } };
 const setKey = v => { try{ localStorage.setItem(KEY_LS,v); }catch(e){} };
+
+/* ============================================================
+   login real · DZ-SEG-01
+   Clave + TOTP siempre — ver DZ-SEG-01 para el porqué. El rol de
+   la sesión (no un botón) decide qué ve cada quien.
+   ============================================================ */
+function mapaPerfil(rol){ return {ADMIN:'admin', DEPOSITO:'deposito', REPARTIDOR:'repartidor'}[rol] || 'repartidor'; }
+
+function mostrarApp(){
+  $('#pantalla-login').hidden = true;
+  $('#app-wrap').hidden = false;
+  render();
+}
+function mostrarLogin(){
+  $('#app-wrap').hidden = true;
+  $('#pantalla-login').hidden = false;
+  renderLogin();
+}
+
+async function verificarSesion(){
+  if(!getApiUrl()){ renderLogin(); return; }
+  const token = getToken();
+  if(!token){ mostrarLogin(); return; }
+  try{
+    const perfil = await api('/api/yo');
+    E.sesion = { token, perfil };
+    E.perfil = mapaPerfil(perfil.rol);
+    mostrarApp();
+  }catch(e){
+    setToken('');
+    mostrarLogin();
+  }
+}
+
+function renderLogin(){
+  const el = $('#login-cuerpo');
+  if(!getApiUrl()){
+    el.innerHTML = `
+      <div class="login-aviso">Primero, dónde vive el servidor. Es la URL del Worker
+        (<span class="mono">http://localhost:8787</span> en desarrollo local).</div>
+      <div class="campo"><label>URL de la API</label><input id="in-api-url" placeholder="http://localhost:8787"></div>
+      ${E.loginError?`<div class="nota" style="border-color:var(--rojo)">${E.loginError}</div>`:''}
+      <button class="btn pri" style="width:100%" onclick="guardarApiUrl()">Continuar</button>`;
+    return;
+  }
+
+  if(E.loginPaso==='clave'){
+    el.innerHTML = `
+      <div class="campo"><label>Usuario</label><input id="in-login-usuario" value="${E.loginUsuario}" onkeydown="if(event.key==='Enter')enviarLogin()"></div>
+      <div class="campo"><label>Clave</label><input id="in-login-clave" type="password" onkeydown="if(event.key==='Enter')enviarLogin()"></div>
+      ${E.loginError?`<div class="nota" style="border-color:var(--rojo)">${E.loginError}</div>`:''}
+      <button class="btn pri" style="width:100%" onclick="enviarLogin()" ${E.loginCargando?'disabled':''}>${E.loginCargando?'Entrando…':'Entrar'}</button>
+      <div style="margin-top:14px;font-size:11px;color:var(--mudo);text-align:center">
+        <a href="#" onclick="event.preventDefault();E.loginError='';getApiUrl()&&confirm('¿Cambiar la URL de la API?')&&(setApiUrl(''),renderLogin())" style="color:var(--mudo)">cambiar servidor</a>
+      </div>`;
+    return;
+  }
+
+  if(E.loginPaso==='totp'){
+    el.innerHTML = `
+      ${E.loginUri?`
+        <div class="login-aviso"><b style="color:var(--texto)">Primera vez de ${E.loginUsuario}.</b> Escaneá esto con
+          Google Authenticator, Microsoft Authenticator o 1Password, o cargá el secreto a mano.</div>
+        <img class="login-qr" src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(E.loginUri)}" alt="QR de enrolamiento" width="180" height="180">
+        <div style="font-family:var(--mono);font-size:12px;color:var(--tenue);word-break:break-all;margin-bottom:14px">${E.loginSecreto}</div>
+      `:`<div class="login-aviso">Código de la app, para <b style="color:var(--texto)">${E.loginUsuario}</b>.</div>`}
+      <div class="campo"><label>Código de 6 dígitos</label><input id="in-login-totp" inputmode="numeric" maxlength="6" onkeydown="if(event.key==='Enter')enviarTotp()"></div>
+      ${E.loginError?`<div class="nota" style="border-color:var(--rojo)">${E.loginError}</div>`:''}
+      <button class="btn pri" style="width:100%" onclick="enviarTotp()" ${E.loginCargando?'disabled':''}>${E.loginCargando?'Verificando…':'Confirmar'}</button>`;
+    return;
+  }
+}
+
+function guardarApiUrl(){
+  const v = ($('#in-api-url').value||'').trim();
+  if(!v){ E.loginError='Falta la URL.'; renderLogin(); return; }
+  setApiUrl(v);
+  E.loginError='';
+  renderLogin();
+}
+
+async function enviarLogin(){
+  const usuario = ($('#in-login-usuario').value||'').trim();
+  const clave = $('#in-login-clave').value||'';
+  if(!usuario || !clave){ E.loginError='Falta usuario o clave.'; renderLogin(); return; }
+  E.loginCargando = true; E.loginError=''; renderLogin();
+  try{
+    const r = await api('/api/login', {method:'POST', body:JSON.stringify({usuario,clave})});
+    E.loginUsuario = usuario;
+    E.loginTicket = r.ticket;
+    E.loginSecreto = r.secreto || '';
+    E.loginUri = r.uri || '';
+    E.loginPaso = 'totp';
+  }catch(e){
+    E.loginError = e.message;
+  }
+  E.loginCargando = false;
+  renderLogin();
+}
+
+async function enviarTotp(){
+  const codigo = ($('#in-login-totp').value||'').trim();
+  if(!/^\d{6}$/.test(codigo)){ E.loginError='Son 6 números.'; renderLogin(); return; }
+  E.loginCargando = true; E.loginError=''; renderLogin();
+  try{
+    const r = await api('/api/login/totp', {method:'POST', body:JSON.stringify({ticket:E.loginTicket, codigo})});
+    setToken(r.token);
+    E.sesion = { token:r.token, perfil:r.perfil };
+    E.perfil = mapaPerfil(r.perfil.rol);
+    E.loginPaso = 'clave'; E.loginTicket=''; E.loginSecreto=''; E.loginUri=''; E.loginUsuario=''; E.loginError='';
+    mostrarApp();
+  }catch(e){
+    E.loginError = e.message;
+    E.loginCargando = false;
+    renderLogin();
+  }
+}
+
+async function salir(){
+  try{ await api('/api/logout', {method:'POST'}); }catch(e){}
+  setToken('');
+  E.sesion = null;
+  E.loginPaso = 'clave';
+  mostrarLogin();
+}
 
 function cerrarPanel(){ pararEscaneo(); $('#panel').hidden = true; $('#mapa').classList.remove('on'); }
 
@@ -1804,16 +2085,17 @@ function simular(){
    render
    ============================================================ */
 const PERFILES = {
-  repartidor:{nombre:'Marcos · repartidor', ve:['hoy','vender','encargue','cierre','clientes']},
-  deposito:  {nombre:'Depósito · admin',    ve:['hoy','carga','encargue','cierre','clientes','productos']},
+  repartidor:{ve:['hoy','vender','encargue','cierre','clientes']},
+  deposito:  {ve:['hoy','carga','encargue','cierre','clientes','productos','usuarios']},
+  admin:     {ve:['hoy','carga','encargue','cierre','clientes','productos','usuarios']},
 };
-function cambiarPerfil(){
-  E.perfil = E.perfil==='repartidor' ? 'deposito' : 'repartidor';
-  if(!PERFILES[E.perfil].ve.includes(E.vista)) E.vista='hoy';
-  render();
+function ir(v){
+  E.vista=v; $$('nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
+  if(v==='usuarios') cargarUsuarios();
+  render(); window.scrollTo({top:0,behavior:'smooth'});
 }
-function ir(v){ E.vista=v; $$('nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===v)); render(); window.scrollTo({top:0,behavior:'smooth'}); }
 function render(){
+  if(!E.sesion) return;   // la pantalla de login se ocupa de sí misma
   const ve = PERFILES[E.perfil].ve;
   $$('nav button').forEach(b=>b.classList.toggle('oculta', !ve.includes(b.dataset.v)));
   if(!ve.includes(E.vista)) E.vista='hoy';
@@ -1824,17 +2106,19 @@ function render(){
   $('#v-cierre').innerHTML    = vCierre();
   $('#v-clientes').innerHTML  = vClientes();
   $('#v-productos').innerHTML = vProductos();
+  $('#v-usuarios').innerHTML  = vUsuarios();
   $$('section').forEach(s=>s.classList.toggle('on', s.id==='v-'+E.vista));
   $('#chip-fecha').textContent = HOY.toLocaleDateString('es-AR',{weekday:'long',day:'numeric',month:'long'});
   $('#chip-repartidor').textContent = REPARTIDOR + ' · ' + DISPOSITIVO;
   $('#chip-estado').textContent = E.cargaConfirmada ? 'en ruta' : 'jornada sin cargar';
   $('#chip-estado').classList.toggle('on', E.cargaConfirmada);
-  $('#chip-perfil').textContent = PERFILES[E.perfil].nombre;
+  $('#chip-perfil').textContent = E.sesion.perfil.nombre + ' · ' + E.sesion.perfil.rol.toLowerCase();
   $('#pie-asientos').textContent = E.asientos.length;
+  $('#pie-api-url').textContent = getApiUrl() || 'la API';
   renderWaDrawer();
 }
 $$('nav button').forEach(b=>b.onclick=()=>ir(b.dataset.v));
-render();
+verificarSesion();
 </script>
 </body>
 </html>

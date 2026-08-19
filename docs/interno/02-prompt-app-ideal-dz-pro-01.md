@@ -17,11 +17,12 @@ cero. Copiá todo el bloque de abajo como primer mensaje de una sesión nueva.
 > encontrás, decila antes de cambiar algo; no cambies nada en silencio.
 >
 > Si tenés acceso al filesystem, el repo ya existe en `~/Desktop/depozeta/` con un
-> prototipo F0 funcionando (`app/index.html`, sin build ni dependencias) y dos documentos
-> técnicos (`docs/interno/01-concepto-dz-app-01.md` y
-> `docs/tecnico/01-modelo-datos-dz-mod-01.md`). Leelos enteros antes de escribir una línea:
-> tienen decisiones, invariantes y constantes ya afinadas que este prompt resume pero no
-> reemplaza.
+> prototipo F0 funcionando (`app/index.html`, sin build ni dependencias), auth real
+> detrás (`server/api/`, Cloudflare Worker + D1 — ver más abajo) y tres documentos
+> técnicos (`docs/interno/01-concepto-dz-app-01.md`,
+> `docs/tecnico/01-modelo-datos-dz-mod-01.md` y `docs/tecnico/04-seguridad-dz-seg-01.md`).
+> Leelos enteros antes de escribir una línea: tienen decisiones, invariantes y constantes
+> ya afinadas que este prompt resume pero no reemplaza.
 >
 > ### Qué es
 >
@@ -186,12 +187,17 @@ cero. Copiá todo el bloque de abajo como primer mensaje de una sesión nueva.
 >
 > ### Antes de escribir la primera línea de la versión real
 >
-> Este prototipo F0 nunca salió a la calle. Antes de invertir en sincronización, auth de
-> verdad o cualquier otra cosa de esta lista, **hacé confirmar al dueño del proyecto que
-> ya lo probó en una jornada real de reparto.** Si todavía no lo hizo, decíselo de vuelta
-> en vez de seguir construyendo sobre supuestos sin validar — el modelo de datos, las
-> constantes del optimizador y hasta el flujo de la venta pueden cambiar en contacto con
-> una camioneta real.
+> Este prototipo F0 nunca salió a la calle. **Auth de verdad ya se construyó** — clave +
+> TOTP, tres roles (ADMIN/DEPOSITO/REPARTIDOR), gestión de usuarios, todo server-side y
+> probado de punta a punta (`DZ-SEG-01`) — porque el dueño del proyecto lo pidió
+> explícitamente, no por iniciativa propia de un agente; esa parte de la advertencia
+> original ya está saldada. Lo que sigue en pie es el resto: **antes de invertir en
+> sincronizar el libro operativo** (clientes, productos, ventas, asientos — hoy F0,
+> en memoria del navegador) **o cualquier otra cosa de esta lista, hacé confirmar al
+> dueño del proyecto que ya probó el prototipo en una jornada real de reparto.** Si
+> todavía no lo hizo, decíselo de vuelta en vez de seguir construyendo sobre supuestos
+> sin validar — el modelo de datos, las constantes del optimizador y hasta el flujo de
+> la venta pueden cambiar en contacto con una camioneta real.
 >
 > ### Lo que todavía no está decidido — preguntale, no lo asumas
 >
@@ -199,7 +205,11 @@ cero. Copiá todo el bloque de abajo como primer mensaje de una sesión nueva.
 >    marca propio, o se revisa? (Comparar con el otro producto de la casa, que sí tiene
 >    uno explícito.)
 > 2. **Producto vendible a otras distribuidoras, o herramienta interna de una sola
->    operación.** Cambia todo: multi-tenant, soporte, modelo de precio.
+>    operación.** Parcialmente decidido: existe rol ADMIN pensando en que otras empresas
+>    lo usen algún día, pero **hoy es de una sola operación** — no asumas multi-tenant
+>    real (aislamiento de datos entre `empresaId`, soporte, modelo de precio) sin
+>    confirmarlo primero, el pedido original fue explícito en que es una previsión, no
+>    un encargo de construirlo ya.
 > 3. **De dónde sale la cartera inicial de clientes** — importar de una planilla existente
 >    es una tarde de trabajo; tipearla de cero es una semana.
 
