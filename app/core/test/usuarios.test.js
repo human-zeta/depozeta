@@ -171,3 +171,95 @@ describe('usuarios · listar', () => {
     await lanzaCon(() => usuarios.listarUsuarios(sujRep), 'NO_AUTORIZADO');
   });
 });
+
+/* ==========================================================================
+   El caso que faltaba: crear una cuenta y que esa persona pueda entrar.
+   Estaba probado por partes (alta por un lado, login por otro) pero nunca
+   de punta a punta — y es exactamente el camino que falló en producción
+   cuando el dueño del proyecto dio de alta a sus dos repartidores.
+   ========================================================================== */
+
+function armarConAuth() {
+  const repoAuth = crearRepositorioAutenticacion();
+  const repoUsu = crearRepositorioUsuarios();
+  const auth = crearAutenticacion({
+    repositorio: repoAuth,
+    politica: { iteracionesPBKDF2: 1_000 },
+    activoDe: async (u) => Boolean((await repoUsu.usuarioPorNombre(u))?.activo),
+  });
+  const usuarios = crearGestionUsuarios({ repositorio: repoUsu, autenticacion: auth });
+  return { usuarios, auth };
+}
+
+describe('usuarios · el alta tiene que terminar en un login que funcione', () => {
+  test('una cuenta recién creada entra con su clave', async () => {
+    const { usuarios, auth } = armarConAuth();
+    const admin = await usuarios.bootstrapAdmin({ usuario: 'juan', nombre: 'Juan Cruz', clave: CLAVE });
+    const suj = crearSujeto({ id: admin.id, usuario: admin.usuario, rol: admin.rol, empresaId: admin.empresaId });
+    await usuarios.crearUsuario(suj, { usuario: 'grillodepo', nombre: 'Grillo', rol: ROLES.DEPOSITO, clave: 'clave-del-deposito-2026' });
+
+    const r = await auth.iniciarSesion({ usuario: 'grillodepo', clave: 'clave-del-deposito-2026' });
+    igual(r.segundoFactor, 'ENROLAR', 'primera vez: tiene que ofrecer enrolar el TOTP');
+    assert(r.ticket, 'tiene que venir un ticket para el segundo paso');
+  });
+
+  test('el usuario NO distingue mayúsculas — el teclado del teléfono las mete solo', async () => {
+    const { usuarios, auth } = armarConAuth();
+    const admin = await usuarios.bootstrapAdmin({ usuario: 'juan', nombre: 'Juan Cruz', clave: CLAVE });
+    const suj = crearSujeto({ id: admin.id, usuario: admin.usuario, rol: admin.rol, empresaId: admin.empresaId });
+    await usuarios.crearUsuario(suj, { usuario: 'grilloreparto', nombre: 'Grillo', rol: ROLES.REPARTIDOR, clave: 'clave-del-reparto-2026' });
+
+    // exactamente lo que manda un iPhone: primera letra en mayúscula
+    const r = await auth.iniciarSesion({ usuario: 'Grilloreparto', clave: 'clave-del-reparto-2026' });
+    assert(r.ticket, 'Grilloreparto y grilloreparto son la misma persona');
+  });
+
+  test('dar de alta con mayúsculas guarda la cuenta en minúsculas', async () => {
+    const { usuarios, auth } = armarConAuth();
+    const admin = await usuarios.bootstrapAdmin({ usuario: 'juan', nombre: 'Juan Cruz', clave: CLAVE });
+    const suj = crearSujeto({ id: admin.id, usuario: admin.usuario, rol: admin.rol, empresaId: admin.empresaId });
+    const creado = await usuarios.crearUsuario(suj, { usuario: '  GrilloDepo ', nombre: 'Grillo', rol: ROLES.DEPOSITO, clave: 'otra-clave-larga-2026' });
+    igual(creado.usuario, 'grillodepo');
+
+    const r = await auth.iniciarSesion({ usuario: 'grillodepo', clave: 'otra-clave-larga-2026' });
+    assert(r.ticket, 'entra con el nombre normalizado');
+  });
+});
+
+describe('usuarios · cambiar la clave de otra cuenta', () => {
+  test('admin le pone clave nueva a un repartidor y ese entra con ella', async () => {
+    const { usuarios, auth } = armarConAuth();
+    const admin = await usuarios.bootstrapAdmin({ usuario: 'juan', nombre: 'Juan Cruz', clave: CLAVE });
+    const suj = crearSujeto({ id: admin.id, usuario: admin.usuario, rol: admin.rol, empresaId: admin.empresaId });
+    await usuarios.crearUsuario(suj, { usuario: 'marcos', nombre: 'Marcos', rol: ROLES.REPARTIDOR, clave: 'la-vieja-que-se-olvido' });
+
+    await usuarios.cambiarClaveDe(suj, 'Marcos', 'la-nueva-clave-2026');
+
+    const r = await auth.iniciarSesion({ usuario: 'marcos', clave: 'la-nueva-clave-2026' });
+    assert(r.ticket, 'entra con la clave nueva');
+    await lanzaCon(() => auth.iniciarSesion({ usuario: 'marcos', clave: 'la-vieja-que-se-olvido' }), 'CREDENCIALES_INVALIDAS');
+  });
+
+  test('un depósito NO puede cambiarle la clave a otro depósito ni al admin', async () => {
+    const { usuarios } = armarConAuth();
+    const admin = await usuarios.bootstrapAdmin({ usuario: 'juan', nombre: 'Juan Cruz', clave: CLAVE });
+    const sujAdmin = crearSujeto({ id: admin.id, usuario: admin.usuario, rol: admin.rol, empresaId: admin.empresaId });
+    const dep = await usuarios.crearUsuario(sujAdmin, { usuario: 'depo1', nombre: 'Depo', rol: ROLES.DEPOSITO, clave: CLAVE });
+    await usuarios.crearUsuario(sujAdmin, { usuario: 'depo2', nombre: 'Otro depo', rol: ROLES.DEPOSITO, clave: CLAVE });
+    const sujDep = crearSujeto({ id: dep.id, usuario: dep.usuario, rol: dep.rol, empresaId: dep.empresaId });
+
+    await lanzaCon(() => usuarios.cambiarClaveDe(sujDep, 'depo2', 'clave-robada-2026'), 'NO_AUTORIZADO');
+    await lanzaCon(() => usuarios.cambiarClaveDe(sujDep, 'juan', 'clave-robada-2026'), 'NO_AUTORIZADO');
+  });
+
+  test('una clave débil se rechaza y la vieja sigue sirviendo', async () => {
+    const { usuarios, auth } = armarConAuth();
+    const admin = await usuarios.bootstrapAdmin({ usuario: 'juan', nombre: 'Juan Cruz', clave: CLAVE });
+    const suj = crearSujeto({ id: admin.id, usuario: admin.usuario, rol: admin.rol, empresaId: admin.empresaId });
+    await usuarios.crearUsuario(suj, { usuario: 'marcos', nombre: 'Marcos', rol: ROLES.REPARTIDOR, clave: 'clave-que-anda-bien' });
+
+    await lanzaCon(() => usuarios.cambiarClaveDe(suj, 'marcos', 'corta'), 'CLAVE_DEBIL');
+    const r = await auth.iniciarSesion({ usuario: 'marcos', clave: 'clave-que-anda-bien' });
+    assert(r.ticket, 'la clave vieja sigue valiendo');
+  });
+});

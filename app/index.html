@@ -1241,6 +1241,7 @@ function vUsuarios(){
       <td class="num">${u.rol}</td>
       <td class="num" style="white-space:nowrap">
         ${puedoGestionarlo && u.activo?`
+          <button class="btn chico" onclick="cambiarClaveReal('${u.usuario}')">Clave nueva</button>
           <button class="btn chico" onclick="reiniciarTotpReal('${u.usuario}')">Reiniciar TOTP</button>
           <button class="btn chico sec" onclick="desactivarUsuarioReal('${u.usuario}')">Desactivar</button>
         `:''}
@@ -1265,7 +1266,7 @@ function vUsuarios(){
     <div class="eyebrow">Nueva cuenta</div>
     <div class="fila">
       <div class="campo" style="flex:1;min-width:150px"><label>Nombre</label><input id="in-usu-nombre" placeholder="Nombre y apellido"></div>
-      <div class="campo" style="flex:1;min-width:150px"><label>Usuario</label><input id="in-usu-usuario" placeholder="sin espacios"></div>
+      <div class="campo" style="flex:1;min-width:150px"><label>Usuario</label><input id="in-usu-usuario" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="sin espacios, en minúscula"></div>
     </div>
     <div class="fila">
       <div class="campo" style="width:150px"><label>Rol</label>
@@ -1313,6 +1314,20 @@ async function desactivarUsuarioReal(usuario){
 async function reiniciarTotpReal(usuario){
   try{ await api('/api/usuarios/'+encodeURIComponent(usuario)+'/reiniciar-totp', {method:'POST'}); await cargarUsuarios(); }
   catch(e){ E.usuariosError = e.message; render(); }
+}
+/* Para cuando alguien se olvida la clave: no hay recuperación por mail —
+   la pone de nuevo quien administra esa cuenta, y las sesiones abiertas de
+   esa persona se cortan solas del lado del servidor. */
+async function cambiarClaveReal(usuario){
+  const clave = prompt('Clave nueva para '+usuario+' (12 caracteres o más, y que no contenga el nombre de usuario):');
+  if(clave === null) return;
+  if(!clave.trim()){ E.usuariosError = 'La clave no puede estar vacía.'; render(); return; }
+  try{
+    await api('/api/usuarios/'+encodeURIComponent(usuario)+'/clave', {method:'POST', body:JSON.stringify({clave})});
+    E.usuariosError = '';
+    alert('Listo. '+usuario+' entra con la clave nueva; si tenía sesión abierta, se cerró.');
+    await cargarUsuarios();
+  }catch(e){ E.usuariosError = e.message; render(); }
 }
 
 function bloqueAgregarProducto(){
@@ -1439,7 +1454,7 @@ function renderLogin(){
 
   if(E.loginPaso==='clave'){
     el.innerHTML = `
-      <div class="campo"><label>Usuario</label><input id="in-login-usuario" value="${E.loginUsuario}" onkeydown="if(event.key==='Enter')enviarLogin()"></div>
+      <div class="campo"><label>Usuario</label><input id="in-login-usuario" value="${E.loginUsuario}" autocapitalize="off" autocorrect="off" autocomplete="username" spellcheck="false" onkeydown="if(event.key==='Enter')enviarLogin()"></div>
       <div class="campo"><label>Clave</label><input id="in-login-clave" type="password" onkeydown="if(event.key==='Enter')enviarLogin()"></div>
       ${E.loginError?`<div class="nota" style="border-color:var(--rojo)">${E.loginError}</div>`:''}
       <button class="btn pri" style="width:100%" onclick="enviarLogin()" ${E.loginCargando?'disabled':''}>${E.loginCargando?'Entrando…':'Entrar'}</button>

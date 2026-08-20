@@ -256,6 +256,14 @@ export default {
         return json(r);
       }
 
+      const cambiarClave = url.pathname.match(/^\/api\/usuarios\/([^/]+)\/clave$/);
+      if (cambiarClave && req.method === 'POST') {
+        if (!sujeto) return json({ error: 'SIN_SESION', mensaje: 'no hay sesión válida' }, 401);
+        const b = await cuerpo(req);
+        const r = await usuarios.cambiarClaveDe(sujeto, decodeURIComponent(cambiarClave[1]), b.clave);
+        return json(r);
+      }
+
       // ---- a partir de acá, el libro operativo — DZ-MOD-01. Todo pide sesión. ----
       if (!sujeto) return json({ error: 'SIN_SESION', mensaje: 'no hay sesión válida' }, 401);
 

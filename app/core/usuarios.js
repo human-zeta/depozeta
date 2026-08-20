@@ -15,6 +15,7 @@
    ========================================================================== */
 
 import { ROLES, ACCIONES, puedeCrearUsuario, puedeGestionarUsuario } from './autorizacion.js';
+import { normalizarUsuario } from './autenticacion.js';
 import { ACCIONES_AUDITORIA } from './auditoria.js';
 
 /* ------------------------------ Repositorio -------------------------------- */
@@ -61,7 +62,8 @@ export function crearGestionUsuarios({ repositorio, autenticacion, auditoria = n
 
   /** El primer ADMIN. Ver la nota del encabezado sobre el token de arranque
       —eso lo exige la API, no esto—. */
-  async function bootstrapAdmin({ usuario, nombre, clave, empresaId = 'default' }) {
+  async function bootstrapAdmin({ usuario: crudo, nombre, clave, empresaId = 'default' }) {
+    const usuario = normalizarUsuario(crudo);
     if (await repositorio.hayUsuarios()) {
       throw error('YA_INICIALIZADO', 'ya existe al menos un usuario — el arranque ya se usó');
     }
@@ -79,10 +81,11 @@ export function crearGestionUsuarios({ repositorio, autenticacion, auditoria = n
   }
 
   /** Alta de un DEPOSITO o REPARTIDOR, por un ADMIN o un DEPOSITO. */
-  async function crearUsuario(actor, { usuario, nombre, rol, clave }) {
+  async function crearUsuario(actor, { usuario: crudo, nombre, rol, clave }) {
     const p = puedeCrearUsuario(actor, rol);
     if (!p.ok) return denegar(actor, ACCIONES.CREAR_USUARIO, p.motivo, { rol });
 
+    const usuario = normalizarUsuario(crudo);
     if (!usuario || !nombre) throw error('DATOS_INCOMPLETOS', 'falta usuario o nombre');
     if (await repositorio.usuarioPorNombre(usuario)) {
       throw error('YA_EXISTE', `el usuario ${usuario} ya existe`);
@@ -101,7 +104,8 @@ export function crearGestionUsuarios({ repositorio, autenticacion, auditoria = n
     return registro;
   }
 
-  async function desactivarUsuario(actor, usuarioObjetivo) {
+  async function desactivarUsuario(actor, usuarioCrudo) {
+    const usuarioObjetivo = normalizarUsuario(usuarioCrudo);
     const objetivo = await repositorio.usuarioPorNombre(usuarioObjetivo);
     if (!objetivo) throw error('NO_EXISTE', 'ese usuario no existe');
 
@@ -116,7 +120,8 @@ export function crearGestionUsuarios({ repositorio, autenticacion, auditoria = n
 
   /** Reinicia el TOTP de otra cuenta (perdió el teléfono). Misma regla
       anti-escalada que desactivar. */
-  async function reiniciarTotpDe(actor, usuarioObjetivo) {
+  async function reiniciarTotpDe(actor, usuarioCrudo) {
+    const usuarioObjetivo = normalizarUsuario(usuarioCrudo);
     const objetivo = await repositorio.usuarioPorNombre(usuarioObjetivo);
     if (!objetivo) throw error('NO_EXISTE', 'ese usuario no existe');
 
@@ -127,9 +132,27 @@ export function crearGestionUsuarios({ repositorio, autenticacion, auditoria = n
     return { ok: true };
   }
 
+  /** Le pone una clave nueva a otra cuenta — para cuando alguien se la
+      olvida. Misma regla anti-escalada que desactivar: nadie le cambia la
+      clave a un par ni a un superior, así un DEPOSITO no puede quedarse
+      con la cuenta del ADMIN. Corta también las sesiones abiertas de esa
+      cuenta (lo hace `establecerClave`), que es lo que corresponde: si la
+      clave cambió, lo que estuviera abierto deja de valer. */
+  async function cambiarClaveDe(actor, usuarioCrudo, claveNueva) {
+    const usuarioObjetivo = normalizarUsuario(usuarioCrudo);
+    const objetivo = await repositorio.usuarioPorNombre(usuarioObjetivo);
+    if (!objetivo) throw error('NO_EXISTE', 'ese usuario no existe');
+
+    const p = puedeGestionarUsuario(actor, ACCIONES.CAMBIAR_CLAVE_AJENA, objetivo);
+    if (!p.ok) return denegar(actor, ACCIONES.CAMBIAR_CLAVE_AJENA, p.motivo, { usuario: usuarioObjetivo });
+
+    await autenticacion.establecerClave({ usuario: usuarioObjetivo, clave: claveNueva });
+    return { ok: true, usuario: usuarioObjetivo };
+  }
+
   /** Para inyectar en `autenticacion.js` como `activoDe`. */
-  async function activoDe(usuario) {
-    const u = await repositorio.usuarioPorNombre(usuario);
+  async function activoDe(crudo) {
+    const u = await repositorio.usuarioPorNombre(normalizarUsuario(crudo));
     return Boolean(u?.activo);
   }
 
@@ -139,5 +162,5 @@ export function crearGestionUsuarios({ repositorio, autenticacion, auditoria = n
     return repositorio.listarUsuarios(actor.empresaId);
   }
 
-  return { bootstrapAdmin, crearUsuario, desactivarUsuario, reiniciarTotpDe, activoDe, listarUsuarios };
+  return { bootstrapAdmin, crearUsuario, desactivarUsuario, reiniciarTotpDe, cambiarClaveDe, activoDe, listarUsuarios };
 }

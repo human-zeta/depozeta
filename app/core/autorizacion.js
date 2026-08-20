@@ -61,6 +61,7 @@ export const ACCIONES = {
   CREAR_USUARIO: 'CREAR_USUARIO',
   DESACTIVAR_USUARIO: 'DESACTIVAR_USUARIO',
   REINICIAR_TOTP_AJENO: 'REINICIAR_TOTP_AJENO',
+  CAMBIAR_CLAVE_AJENA: 'CAMBIAR_CLAVE_AJENA',
   VER_AUDITORIA: 'VER_AUDITORIA',
 };
 
@@ -79,7 +80,7 @@ const PERMISOS = {
     // Los tres, acotados a REPARTIDOR por puedeCrearUsuario()/
     // puedeGestionarUsuario() — depósito arma y mantiene su propia planta
     // de repartidores de punta a punta, sin pasar por ADMIN para cada baja.
-    A.CREAR_USUARIO, A.DESACTIVAR_USUARIO, A.REINICIAR_TOTP_AJENO,
+    A.CREAR_USUARIO, A.DESACTIVAR_USUARIO, A.REINICIAR_TOTP_AJENO, A.CAMBIAR_CLAVE_AJENA,
     // No ve auditoría: eso queda para ADMIN.
   ]),
 

@@ -56,6 +56,14 @@ export const POLITICA = Object.freeze({
   ticketMinutos: 5,
 });
 
+/* El nombre de usuario es una identidad, no un texto: `Grillodepo` y
+   `grillodepo` son la misma persona. El teclado de un teléfono pone la
+   mayúscula inicial solo, y sin esto la cuenta simplemente "no existe" al
+   intentar entrar — que fue exactamente lo que pasó en producción con las
+   dos primeras cuentas de reparto. Se normaliza en el motor, no en el
+   formulario: el navegador puede fallar, la identidad no. */
+export const normalizarUsuario = (u) => String(u ?? '').trim().toLowerCase();
+
 export function politicaClave(clave, usuario = '') {
   if (typeof clave !== 'string' || clave.length < POLITICA.largoMinimo) {
     return { ok: false, motivo: `la clave debe tener al menos ${POLITICA.largoMinimo} caracteres` };
@@ -197,7 +205,8 @@ export function crearAutenticacion({
 
   const error = (codigo, mensaje) => Object.assign(new Error(mensaje), { codigo });
 
-  async function establecerClave({ usuario, clave }) {
+  async function establecerClave({ usuario: crudo, clave }) {
+    const usuario = normalizarUsuario(crudo);
     const p = politicaClave(clave, usuario);
     if (!p.ok) throw error('CLAVE_DEBIL', p.motivo);
     await repositorio.guardarClave(usuario, await hashearClave(clave, { iteraciones: P.iteracionesPBKDF2 }));
@@ -206,12 +215,14 @@ export function crearAutenticacion({
     return { ok: true };
   }
 
-  async function verificarClaveDe(usuario, clave) {
+  async function verificarClaveDe(crudo, clave) {
+    const usuario = normalizarUsuario(crudo);
     const registro = await repositorio.claveDe(usuario);
     return verificarClave(clave, registro?.hash ?? HASH_SENUELO);
   }
 
-  async function iniciarSesion({ usuario, clave, ip = null, userAgent = null }) {
+  async function iniciarSesion({ usuario: crudo, clave, ip = null, userAgent = null }) {
+    const usuario = normalizarUsuario(crudo);
     const hoy = ahora();
     const desde = new Date(hoy.getTime() - P.ventanaIntentosMinutos * MS.minuto);
 
@@ -352,13 +363,15 @@ export function crearAutenticacion({
     return { ok: true };
   }
 
-  async function segundoFactorDe(usuario) {
+  async function segundoFactorDe(crudo) {
+    const usuario = normalizarUsuario(crudo);
     return Boolean((await repositorio.totpDe(usuario))?.confirmado);
   }
 
   /** Reinicia el TOTP de un usuario (perdió el teléfono, cambió de app).
       La autorización de quién puede pedirlo la impone la API, no esto. */
-  async function reiniciarTotp({ usuario }) {
+  async function reiniciarTotp({ usuario: crudo }) {
+    const usuario = normalizarUsuario(crudo);
     await repositorio.guardarTotp(usuario, null, false);
     await repositorio.revocarSesionesDe(usuario, ahora());
     await auditar(ACCIONES_AUDITORIA.TOTP_REINICIADO, { usuario, detalle: { reinicio: true } });
