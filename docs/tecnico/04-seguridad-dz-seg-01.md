@@ -154,7 +154,7 @@ las dos necesarias:
 
 ## Probado, no sólo escrito
 
-- **66/66 tests de Node** sobre los cinco módulos (`totp`, `autorizacion`,
+- **136/136 tests de Node** sobre los motores de seguridad y del libro (`totp`, `autorizacion`,
   `autenticacion`, `usuarios`, y su integración) — incluye los tres
   vectores oficiales del RFC 6238 y el pedido literal del dueño del
   proyecto convertido en test: depósito crea reparto, no crea depósito ni
@@ -176,11 +176,42 @@ con el mismo login de dos pasos verificado ahí, no sólo en local. Ver
 
 ---
 
+## El segundo bug que sólo apareció usándolo
+
+El del ticket en memoria (arriba) lo encontró el despliegue. Este lo
+encontró el dueño del proyecto dando de alta a sus dos primeros
+repartidores: **ninguno de los dos podía entrar.**
+
+La causa no estaba en la seguridad sino en la identidad. El teclado de un
+teléfono capitaliza la primera letra sin avisar, y el motor comparaba el
+nombre de usuario como texto exacto: `Grillodepo` y `grillodepo` eran dos
+personas distintas, así que la cuenta «no existía» y el login devolvía
+—correctamente, según el código— «usuario o clave incorrectos». La tabla
+`intentos_login` lo mostraba sin ambigüedad: cuatro intentos con la
+mayúscula puesta.
+
+Se arregló normalizando (trim + minúsculas) **en el motor**, no en el
+formulario: los campos ahora además llevan `autocapitalize="off"`, pero
+esa es la segunda línea de defensa, no la primera — un atributo HTML
+depende del navegador, y la identidad de una cuenta no puede.
+
+**Lo que faltaba en los tests, y es la parte que importa:** había pruebas
+del alta por un lado y del login por el otro, pero ninguna que hiciera el
+camino entero — crear una cuenta y que esa persona entre con su clave.
+Ese test ahora existe, y falla sin el arreglo.
+
+---
+
 ## Lo que no está resuelto
 
-- **Sin recuperación de clave.** Si alguien la pierde, hoy no hay flujo
-  de reseteo — lo resuelve un ADMIN o DEPOSITO dándole de baja y de alta
-  de nuevo. Un reseteo propio es trabajo de otra noche.
+- **Sin recuperación de clave por la propia persona.** No hay «olvidé mi
+  clave» con mail ni preguntas: la repone quien administra esa cuenta,
+  desde Usuarios → «Clave nueva» (`POST /api/usuarios/:usuario/clave`),
+  con la misma regla anti-escalada que desactivar — nadie le cambia la
+  clave a un par ni a un superior, así un DEPOSITO no puede quedarse con
+  la cuenta del ADMIN. Cambiarla corta las sesiones abiertas de esa
+  cuenta. Para una operación de tres personas alcanza; un autoservicio
+  por mail es otra cosa.
 - **La API todavía no tiene dominio propio** — vive en la URL que asigna
   `workers.dev`, no en algo como `depozeta-api.hg-vl.com`. Cosmético, no
   funcional.

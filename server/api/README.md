@@ -75,6 +75,7 @@ de nuevo (sólo tiene efecto mientras no haya usuarios todavía).
 | `POST /api/usuarios` | Alta — ADMIN crea cualquier rol menor; DEPOSITO sólo REPARTIDOR |
 | `POST /api/usuarios/:usuario/desactivar` | Corta la cuenta y sus sesiones ya abiertas, no sólo el próximo login |
 | `POST /api/usuarios/:usuario/reiniciar-totp` | Para cuando alguien pierde el teléfono |
+| `POST /api/usuarios/:usuario/clave` | Le pone clave nueva a otra cuenta `{clave}` — para cuando se la olvidan. Misma regla anti-escalada; corta las sesiones abiertas de esa cuenta |
 
 **El libro operativo** — diseño en `DZ-MOD-01`. Todas piden sesión; el costo y el margen
 sólo viajan si el rol tiene `VER_COSTOS` (DEPOSITO/ADMIN):
@@ -127,8 +128,8 @@ o similar), ver «Qué falta».
 ## CORS
 
 Ya no es `*` — `encabezadosCors()` en `worker.mjs` refleja el `Origin` sólo si está en
-`ORIGENES_PERMITIDOS` (hoy `depozeta.hg-vl.com` y `human-zeta.github.io`) o es
-`localhost` en cualquier puerto, para seguir desarrollando local. Si el front termina
+`ORIGENES_PERMITIDOS` (hoy `depozeta.hg-vl.com` en http y https, `human-zeta.github.io`
+y `null` para el archivo abierto con doble clic) o es `localhost` en cualquier puerto, para seguir desarrollando local. Si el front termina
 viviendo en otro origen, agregarlo a esa lista.
 
 ## Qué falta
@@ -144,6 +145,6 @@ viviendo en otro origen, agregarlo a esa lista.
   juntos.
 - **Actualizar el costo de un producto ya existente** — hoy sólo se fija
   al dar de alta.
-- **El primer ADMIN real todavía no se creó** — hace falta correr
-  `/api/bootstrap` contra la URL real, con el token que quedó como
-  secret. Ver «El primer ADMIN» arriba.
+- **Autoservicio de «olvidé mi clave»** — hoy la repone quien administra
+  esa cuenta (`/api/usuarios/:usuario/clave`, botón «Clave nueva» en
+  Usuarios). Para tres personas alcanza; un flujo por mail es otra cosa.
