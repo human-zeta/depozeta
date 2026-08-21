@@ -7,6 +7,17 @@ a la caja.
 Repo: https://github.com/human-zeta/depozeta (privado). Destino planeado:
 `depozeta.hg-vl.com`, mismo patrón de distribución que zzz en `hg-vl.com`.
 
+**Nuevo (2026-08-21): compras y proveedores.** La pestaña **Compras** (DEPOSITO/ADMIN)
+lleva las fichas de proveedores con WhatsApp directo, el historial de precios de compra
+—append-only, como el libro— y **el cuadro de precios**: quién lo tiene más barato este
+mes, con sello **ÉPICO** cuando la diferencia es para no dejarla pasar (ventana de 35
+días: con inflación, un precio de hace dos meses es un recuerdo). De esos datos salen
+las **promos que se arman solas** (en Precios, con la cuenta y el margen a la vista),
+el **remito de la entrega** (WhatsApp prellenado / PDF, interno, no válido como
+factura) y la **ruta entera del día en Google Maps** por deep link multiparada.
+El repartidor no ve nada de esto del lado de compras: la pared es del servidor
+(`VER_COSTOS` / `GESTIONAR_COMPRAS`), no de la interfaz.
+
 > **Carga − ventas − devoluciones = 0.**
 > Si no da cero, hay faltante. Y el faltante se ve el mismo día, no a fin de mes.
 

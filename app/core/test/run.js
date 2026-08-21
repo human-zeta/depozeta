@@ -11,6 +11,8 @@ import './catalogo.test.js';
 import './clientes.test.js';
 import './zonas.test.js';
 import './encargues.test.js';
+import './compras.test.js';
+import './promos.test.js';
 
 void suites;
 await correr();

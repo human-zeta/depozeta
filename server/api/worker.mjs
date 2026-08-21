@@ -23,6 +23,7 @@ import { validarAsiento } from '../../app/core/libro.js';
 import { armarProducto, remarcarProductos } from '../../app/core/catalogo.js';
 import { armarCliente, siguienteIdCliente, puedeActualizarPunto } from '../../app/core/clientes.js';
 import { armarZona } from '../../app/core/zonas.js';
+import { armarProveedor, armarCompra, asientoDeCompra } from '../../app/core/compras.js';
 import { armarVenta, asientosDeVenta, validarStockParaAsientos } from '../../app/core/ventas.js';
 import {
   armarEncargue, vincularProductoEspecial, exigirTransicion, armarVentaDesdeEncargue,
@@ -31,6 +32,7 @@ import { repositorioAutenticacionD1, repositorioUsuariosD1, auditoriaD1 } from '
 import {
   repositorioCatalogoD1, repositorioClientesD1, repositorioLibroD1,
   repositorioVentasD1, repositorioNoVentasD1, repositorioEncarguesD1, repositorioZonasD1,
+  repositorioProveedoresD1, repositorioComprasD1,
 } from './repo-libro-d1.mjs';
 
 /* ------------------------------- Utilidades -------------------------------- */
@@ -116,12 +118,15 @@ function armarMotores(env) {
     repoNoVentas: repositorioNoVentasD1(env.DB),
     repoEncargues: repositorioEncarguesD1(env.DB),
     repoZonas: repositorioZonasD1(env.DB),
+    repoProveedores: repositorioProveedoresD1(env.DB),
+    repoCompras: repositorioComprasD1(env.DB),
   };
 }
 
 const idAsiento = () => `srv-${crypto.randomUUID()}`;
 const idVenta = () => `V-${crypto.randomUUID()}`;
 const idEncargue = () => `ENC-${crypto.randomUUID()}`;
+const idCompra = () => `CO-${crypto.randomUUID()}`;
 
 /* Costo y margen son lo que separa la interfaz de reparto de la de
    depósito (DZ-MOD-01, «Perfil y permisos») — acá es donde se aplica de
@@ -180,7 +185,7 @@ export default {
     const url = new URL(req.url);
     const {
       auth, usuarios, repoUsuarios, repoCatalogo, repoClientes, repoLibro,
-      repoVentas, repoNoVentas, repoEncargues, repoZonas,
+      repoVentas, repoNoVentas, repoEncargues, repoZonas, repoProveedores, repoCompras,
     } = armarMotores(env);
 
     try {
@@ -346,6 +351,49 @@ export default {
         exigir(sujeto, ACCIONES.GESTIONAR_ZONAS);
         await repoZonas.eliminarZona(decodeURIComponent(eliminarZona[1]));
         return json({ ok: true });
+      }
+
+      // -- compras y proveedores --
+      // Llevan precios de compra: el mismo dato que protege VER_COSTOS.
+      // El repartidor no los lee ni los escribe — la pared es del servidor,
+      // no de la interfaz (igual que costo y margen en productoPublico).
+      if (url.pathname === '/api/proveedores' && req.method === 'GET') {
+        exigir(sujeto, ACCIONES.VER_COSTOS);
+        return json(await repoProveedores.listarProveedores());
+      }
+
+      if (url.pathname === '/api/proveedores' && req.method === 'POST') {
+        exigir(sujeto, ACCIONES.GESTIONAR_COMPRAS);
+        const b = await cuerpo(req);
+        const proveedor = armarProveedor({ ...b, id: await repoProveedores.siguienteIdProveedor() });
+        await repoProveedores.guardarProveedor(proveedor);
+        return json(proveedor, 201);
+      }
+
+      if (url.pathname === '/api/compras' && req.method === 'GET') {
+        exigir(sujeto, ACCIONES.VER_COSTOS);
+        return json(await repoCompras.listarCompras());
+      }
+
+      /* Anotar una compra: el precio siempre suma al cuadro; las unidades,
+         si hay, entran al depósito por asiento; y el costo de reposición
+         del producto se actualiza al precio recién pagado — con inflación,
+         el costo fresco es el único que no miente (catalogo.js). */
+      if (url.pathname === '/api/compras' && req.method === 'POST') {
+        exigir(sujeto, ACCIONES.GESTIONAR_COMPRAS);
+        const b = await cuerpo(req);
+        const producto = await repoCatalogo.productoPorId(b.producto);
+        if (!producto) return json({ error: 'NO_EXISTE', mensaje: `no existe el producto ${b.producto}` }, 404);
+        const compra = armarCompra({ ...b, id: idCompra(), autor: sujeto.usuario });
+        await repoCompras.crearCompra(compra);
+        const asiento = asientoDeCompra(compra);
+        if (asiento) {
+          const completo = { ...asiento, id: idAsiento(), fecha: compra.fecha, autor: sujeto.usuario, dispositivo: 'srv' };
+          validarAsiento(completo);
+          await repoLibro.crearAsiento(completo);
+        }
+        await repoCatalogo.guardarProducto({ ...producto, costo: compra.precio, costoActualizado: compra.fecha });
+        return json(compra, 201);
       }
 
       // -- el libro --

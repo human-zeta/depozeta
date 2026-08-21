@@ -277,3 +277,58 @@ export function repositorioZonasD1(db) {
     },
   };
 }
+
+/* ────────────────────────── Compras y proveedores ────────────────────────── */
+
+export function repositorioProveedoresD1(db) {
+  const fila = (r) => r && ({
+    id: r.id, nombre: r.nombre, contacto: r.contacto, tel: r.tel, zona: r.zona,
+    rubros: r.rubros ? JSON.parse(r.rubros) : [], entrega: r.entrega, condicion: r.condicion,
+    notas: r.notas, activo: Boolean(r.activo),
+  });
+
+  return {
+    async listarProveedores() {
+      const { results } = await db.prepare('SELECT * FROM proveedores WHERE empresa_id = ? ORDER BY nombre').bind(EMPRESA).all();
+      return results.map(fila);
+    },
+    async guardarProveedor(p) {
+      await db.prepare(
+        `INSERT INTO proveedores (id, empresa_id, nombre, contacto, tel, zona, rubros, entrega, condicion, notas, activo)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?)
+         ON CONFLICT(id) DO UPDATE SET nombre=excluded.nombre, contacto=excluded.contacto, tel=excluded.tel,
+           zona=excluded.zona, rubros=excluded.rubros, entrega=excluded.entrega, condicion=excluded.condicion,
+           notas=excluded.notas, activo=excluded.activo`
+      ).bind(p.id, EMPRESA, p.nombre, p.contacto || null, p.tel || null, p.zona || null,
+        JSON.stringify(p.rubros || []), p.entrega || null, p.condicion || null, p.notas || null, p.activo ? 1 : 0).run();
+      return p;
+    },
+    /* máximo existente, no conteo — mismo criterio que zonas y clientes */
+    async siguienteIdProveedor() {
+      const { results } = await db.prepare('SELECT id FROM proveedores WHERE empresa_id = ?').bind(EMPRESA).all();
+      const max = results.reduce((m, r) => Math.max(m, parseInt(String(r.id).slice(2), 10) || 0), 0);
+      return 'PR' + (max + 1);
+    },
+  };
+}
+
+export function repositorioComprasD1(db) {
+  const fila = (r) => r && ({
+    id: r.id, fecha: r.fecha, proveedor: r.proveedor_id, producto: r.producto_id,
+    precio: r.precio, cantidad: r.cantidad, autor: r.autor,
+  });
+
+  return {
+    async listarCompras() {
+      const { results } = await db.prepare('SELECT * FROM compras WHERE empresa_id = ? ORDER BY fecha DESC').bind(EMPRESA).all();
+      return results.map(fila);
+    },
+    /* append-only, como el libro: no hay update ni delete de una compra */
+    async crearCompra(c) {
+      await db.prepare(
+        'INSERT INTO compras (id, empresa_id, fecha, proveedor_id, producto_id, precio, cantidad, autor) VALUES (?,?,?,?,?,?,?,?)'
+      ).bind(c.id, EMPRESA, c.fecha, c.proveedor, c.producto, c.precio, c.cantidad, c.autor || null).run();
+      return c;
+    },
+  };
+}

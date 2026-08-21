@@ -223,6 +223,31 @@ select option{background:#0d1a14}
 #mapa{width:100%;height:0;border-radius:14px;overflow:hidden}
 #mapa.on{height:min(52vh,420px)}
 
+/* ---------- manos de laburo: todo más grande y tocable ---------- */
+button.btn{min-height:40px;font-size:13.5px;padding:8px 15px}
+.btn.chico{min-height:34px;font-size:12px;padding:6px 11px}
+input,select{min-height:40px;font-size:14px}
+input.num{min-height:36px}
+nav button{font-size:11px;padding:8px 2px}
+nav button .ico{font-size:18px}
+
+/* ---------- compras y promos ---------- */
+.badge.epico{background:rgba(245,197,66,.18);color:var(--amarillo);font-weight:700;letter-spacing:.06em}
+.promo{border-left:3px solid var(--amarillo);padding:14px 16px;margin-bottom:10px}
+.promo .gancho{font-size:15px;font-weight:620;letter-spacing:-.015em}
+.promo .cuenta{font-size:12.5px;color:var(--tenue);margin-top:4px;line-height:1.55}
+.promo .acc{display:flex;gap:7px;margin-top:10px;flex-wrap:wrap;align-items:center}
+.prov{padding:14px 16px;margin-bottom:10px}
+.prov .nom{font-weight:600;font-size:15px}
+.prov .datos{font-size:12.5px;color:var(--tenue);margin-top:2px;line-height:1.55}
+a.wa-btn{text-decoration:none}
+a.wa-btn button{color:#3ADB84;border-color:rgba(58,219,132,.4)}
+#toast{
+  position:fixed;left:50%;transform:translateX(-50%);bottom:86px;z-index:70;
+  padding:10px 16px;font-size:13px;max-width:88vw;text-align:center
+}
+#toast[hidden]{display:none}
+
 /* ---------- impresión ---------- */
 @media print{
   /* la trampa de la casa: los colores escritos a mano desaparecen sobre fondo blanco.
@@ -236,7 +261,7 @@ select option{background:#0d1a14}
   }
   body{background:#fff;color:#111;padding:0}
   body::before{display:none}
-  nav{display:none}
+  nav,#toast{display:none}
   .glass{background:#fff;border:1px solid var(--borde);box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none}
   .eyebrow{color:#146b3f}          /* explícito: el original es rgba(), no variable */
   .marca h1 span{color:#146b3f}
@@ -244,6 +269,11 @@ select option{background:#0d1a14}
   input,select{background:#fff;border:1px solid var(--borde);color:#111}
   .total b{color:#146b3f}
   section{display:block!important;page-break-inside:avoid;margin-bottom:22px}
+  /* imprimir un remito: sale sólo la hoja, no la app entera */
+  body.imprime-remito .wrap, body.imprime-remito #app-wrap{display:none}
+  body.imprime-remito #panel{position:static;background:none;backdrop-filter:none;padding:0;display:block}
+  body.imprime-remito .panel-caja{max-height:none;max-width:100%;box-shadow:none;border:0;padding:0}
+  body.imprime-remito .panel-cab,body.imprime-remito .nota{display:none}
   .tabla-scroll{overflow:visible;margin:0;padding:0}
   .tabla-scroll table{min-width:0}
   button{display:none}
@@ -291,6 +321,7 @@ select option{background:#0d1a14}
   <section id="v-clientes"></section>
   <section id="v-productos"></section>
   <section id="v-usuarios"></section>
+  <section id="v-compras"></section>
 
   <div class="pie">
     Todo lo de abajo es real —login con clave y TOTP, catálogo, cartera, ventas y el libro
@@ -321,6 +352,8 @@ select option{background:#0d1a14}
   </div>
 </div>
 
+<div id="toast" class="glass" hidden></div>
+
 <nav><div class="tabs">
   <button data-v="hoy" data-perfil="ambos" class="on"><span class="ico">📍</span>Hoy</button>
   <button data-v="carga" data-perfil="deposito"><span class="ico">📦</span>Carga</button>
@@ -329,6 +362,7 @@ select option{background:#0d1a14}
   <button data-v="cierre" data-perfil="ambos"><span class="ico">⚖️</span>Cierre</button>
   <button data-v="clientes" data-perfil="ambos"><span class="ico">👥</span>Clientes</button>
   <button data-v="productos" data-perfil="deposito"><span class="ico">🏷️</span>Precios</button>
+  <button data-v="compras" data-perfil="deposito"><span class="ico">🚚</span>Compras</button>
   <button data-v="usuarios" data-perfil="deposito"><span class="ico">🔐</span>Usuarios</button>
 </div></nav>
 
@@ -378,6 +412,7 @@ const E = {
   noVentaAbierta:'', aviso:'',
   ordenOptimo:[], perfil:'repartidor',
   zonas:[], avisoZona:'',       /* zonas a evitar: las carga el usuario, no la app */
+  proveedores:[], compras:[], avisoCompra:'',   /* sólo llegan si el rol ve costos */
   avisoProducto:'', avisoCliente:'', waAbierto:false,
   encargues:[], avisoEncargue:'',
   encargueEnCurso:{cliente:'', tipoActual:'catalogo', renglones:[]},
@@ -473,6 +508,137 @@ function stock(id, ubi){
   }
   return s;
 }
+/* ---------------- compras · espejo de app/core/compras.js ----------------
+   El cuadro compara sólo precios de los últimos 35 días: con inflación,
+   un precio de hace dos meses no es un precio, es un recuerdo. */
+const VENTANA_PRECIO = 35;
+const provee = id => E.proveedores.find(p=>p.id===id);
+const waTel  = t  => 'https://wa.me/549'+String(t||'').replace(/\D/g,'');
+const redondear = n => Math.round(n/10)*10;
+
+function cuadroDe(pid){
+  const delProducto = E.compras.filter(x=>x.producto===pid);
+  const recientes = delProducto.filter(x=>diasDesde(x.fecha)<=VENTANA_PRECIO);
+  const porProv = {};
+  recientes.forEach(x=>{ if(!porProv[x.proveedor] || diasDesde(x.fecha)<diasDesde(porProv[x.proveedor].fecha)) porProv[x.proveedor]=x; });
+  const ofertas = Object.values(porProv).sort((a,b)=>a.precio-b.precio);
+  const mejor = ofertas[0]||null, segundo = ofertas[1]||null;
+  const costo = (prod(pid)||{}).costo;
+  const epico = !!mejor && ((!!segundo && mejor.precio<=segundo.precio*0.92) || (costo>0 && mejor.precio<costo*0.97));
+  return {ofertas, mejor, segundo, epico, vieja: !mejor && delProducto.length>0};
+}
+/* unidades por semana, medidas sobre las ventas reales de los últimos 28
+   días — sin ventas, cero: no se inventa demanda */
+function rotacionSemanal(pid){
+  const desde = Date.now() - 28*86400000;
+  let u = 0;
+  E.ventas.forEach(v=>{
+    if(new Date(v.fecha).getTime()<desde) return;
+    (v.renglones||[]).forEach(r=>{ if(r.producto===pid) u+=r.cantidad; });
+  });
+  return u*7/28;
+}
+function ahorroSemanal(){
+  return PRODUCTOS.reduce((t,p)=>{
+    const q = cuadroDe(p.id);
+    return t + (q.mejor ? Math.max(0, p.costo-q.mejor.precio)*rotacionSemanal(p.id) : 0);
+  },0);
+}
+/* ---------------- promos · espejo de app/core/promos.js ---------------- */
+function parejaEstrella(){
+  const pares={};
+  E.ventas.forEach(v=>{
+    const ids=[...new Set((v.renglones||[]).map(r=>r.producto))];
+    for(let i=0;i<ids.length;i++) for(let j=i+1;j<ids.length;j++){
+      const k=[ids[i],ids[j]].sort().join('|'); pares[k]=(pares[k]||0)+1;
+    }
+  });
+  const top=Object.entries(pares).sort((a,b)=>b[1]-a[1])[0];
+  if(!top) return null;
+  const [a,b]=top[0].split('|');
+  return {a:prod(a), b:prod(b), veces:top[1]};
+}
+const textoWa = gancho =>
+  '🛻 *'+gancho+'* — esta semana en el reparto, hasta que se acabe. '+
+  'Contestá este mensaje y te lo llevo con el pedido de siempre.';
+
+function promosDelDia(){
+  if(!esDeposito() || !E.compras.length) return [];   /* viven del lado de los costos */
+  const proms=[];
+  PRODUCTOS.forEach(p=>{
+    if(proms.filter(x=>x.tipo==='pelea').length>=2) return;
+    const q=cuadroDe(p.id);
+    if(!q.epico||!q.mejor) return;
+    const lista=(p.precios||{}).mayorista; if(!(lista>0)) return;
+    const nuevo=redondear(lista*0.95);
+    const m=(nuevo-q.mejor.precio)/nuevo*100;
+    if(m<18) return;
+    proms.push({tipo:'pelea',
+      gancho:p.nombre+' a '+peso(nuevo)+' (antes '+peso(lista)+')',
+      cuenta:'Comprándole a '+((provee(q.mejor.proveedor)||{}).nombre||q.mejor.proveedor)+' a '+peso(q.mejor.precio)+
+        ', aun bajando la lista un 5% te queda '+m.toFixed(0)+'% de margen. El precio bueno de compra se pelea en el mostrador, no se guarda.',
+      margen:m});
+  });
+  const par=parejaEstrella();
+  if(par&&par.a&&par.b&&(par.a.precios||{}).mayorista>0&&(par.b.precios||{}).mayorista>0){
+    const tot=redondear((par.a.precios.mayorista+par.b.precios.mayorista)*0.94);
+    const m=(tot-(par.a.costo+par.b.costo))/tot*100;
+    if(m>=12) proms.push({tipo:'combo',
+      gancho:'Combo: '+par.a.nombre+' + '+par.b.nombre+' a '+peso(tot),
+      cuenta:'Salieron juntos '+par.veces+' veces en las ventas. 6% menos que sueltos y el margen queda en '+m.toFixed(0)+'%.',
+      margen:m});
+  }
+  const gordo=PRODUCTOS.filter(p=>margen(p)>=25).sort((a,b)=>margen(b)-margen(a))[0];
+  if(gordo&&(gordo.precios||{}).mayorista>0){
+    const v=gordo.precios.mayorista, tot=v+redondear(v*0.75);
+    const m=(tot-2*gordo.costo)/tot*100;
+    if(m>=12) proms.push({tipo:'segunda',
+      gancho:gordo.nombre+': la segunda al 25% menos',
+      cuenta:'Dos salen '+peso(tot)+'. El margen del par queda en '+m.toFixed(0)+'% — aguanta el descuento porque ya era el de mejor margen.',
+      margen:m});
+  }
+  const lento=PRODUCTOS.filter(p=>{
+    const r=rotacionSemanal(p.id);
+    return p.vence && r>0 && stock(p.id,'deposito')/r>5;
+  }).sort((a,b)=>stock(b.id,'deposito')/rotacionSemanal(b.id)-stock(a.id,'deposito')/rotacionSemanal(a.id))[0];
+  if(lento&&(lento.precios||{}).mayorista>0){
+    const v=lento.precios.mayorista, tot=redondear(5*v);
+    const m=(tot-6*lento.costo)/tot*100, sem=(stock(lento.id,'deposito')/rotacionSemanal(lento.id)).toFixed(0);
+    if(m>=8) proms.push({tipo:'saca',
+      gancho:lento.nombre+': llevá 6 y pagá 5',
+      cuenta:'Hay '+sem+' semanas de stock en el depósito y es mercadería que vence. Regalar una de seis deja '+m.toFixed(0)+'% de margen — mejor que tirarla.',
+      margen:m});
+  }
+  return proms;
+}
+
+/* ---------------- toast + copiar ---------------- */
+function toast(msg){
+  const t=$('#toast'); if(!t) return; t.textContent=msg; t.hidden=false;
+  clearTimeout(toast._t); toast._t=setTimeout(()=>{t.hidden=true;},2600);
+}
+function copiarTexto(txt){
+  const done=()=>toast('Copiado. Pegalo en WhatsApp y mandalo vos — la app no manda nada sola.');
+  const aMano=()=>{
+    const ta=document.createElement('textarea'); ta.value=txt;
+    document.body.appendChild(ta); ta.select();
+    try{document.execCommand('copy');}catch(e){}
+    ta.remove(); done();
+  };
+  if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done,aMano);
+  else aMano();
+}
+function copiarPromo(i){
+  const pr=promosDelDia()[i];
+  if(pr) copiarTexto(textoWa(pr.gancho));
+}
+/* atajos de cantidad para vender con guantes: +1, +6, +bulto */
+function sumaCant(n){
+  const el=$('#sel-cant'); if(!el) return;
+  const extra = n==='bulto' ? ((prod($('#sel-prod').value)||{}).porBulto||6) : n;
+  el.value = Math.max(1,(+el.value||0)+extra);
+}
+
 const rutaDelDia = () => CLIENTES.filter(c=>c.dias.includes(DIA_SEMANA))
   .sort((a,b)=>(E.ordenOptimo.indexOf(a.id)+1||99)-(E.ordenOptimo.indexOf(b.id)+1||99) || a.orden-b.orden);
 
@@ -585,6 +751,37 @@ function agenda(cls){
 }
 const reloj = h => String(Math.floor(h)).padStart(2,'0')+':'+String(Math.round((h%1)*60)).padStart(2,'0');
 const wazeUrl = c => { const p=puntoDe(c); return 'https://waze.com/ul?ll='+p.lat+','+p.lng+'&navigate=yes'; };
+/* ---------------- la ruta entera en Maps ----------------
+   El link de rutas de Google acepta paradas intermedias: gratis, sin key —
+   el mismo deep link de siempre, con más puntos. El límite es 9 intermedias
+   por link; con un día largo la ruta se corta en tramos que empalman.
+   Waze no tiene link multiparada; para la ruta entera es Maps o Maps. */
+const destinoNav = c => c.punto ? c.punto.lat+','+c.punto.lng : c.dir;
+function rutaMapsUrl(cls, origen, conVuelta){
+  const pts = cls.map(destinoNav);
+  const destino = conVuelta ? DEPOSITO.lat+','+DEPOSITO.lng : pts[pts.length-1];
+  const inter   = conVuelta ? pts : pts.slice(0,-1);
+  return 'https://www.google.com/maps/dir/?api=1'
+    +'&origin='+encodeURIComponent(origen)
+    +'&destination='+encodeURIComponent(destino)
+    +(inter.length?'&waypoints='+encodeURIComponent(inter.join('|')):'')
+    +'&travelmode=driving';
+}
+function tramosMaps(ruta){
+  const pend = ruta.filter(c=>estadoParada(c.id)==='pendiente');
+  if(!pend.length) return [];
+  const MAX = 9;
+  const tramos=[];
+  let origen = DEPOSITO.lat+','+DEPOSITO.lng;
+  for(let i=0;i<pend.length;i+=MAX){
+    const grupo = pend.slice(i,i+MAX);
+    const esUltimo = i+MAX>=pend.length;
+    tramos.push({url:rutaMapsUrl(grupo,origen,esUltimo), desde:i+1, hasta:i+grupo.length});
+    origen = destinoNav(grupo[grupo.length-1]);
+  }
+  return tramos;
+}
+
 const estadoParada = id =>
   E.ventas.some(v=>v.cliente===id) ? 'hecha' :
   E.noVentas.some(n=>n.cliente===id) ? 'sinventa' : 'pendiente';
@@ -635,7 +832,8 @@ function vHoy(){
         ${tramo.zonas.length?`<div class="ref" style="font-style:normal;color:var(--rojo);font-weight:600">⚠ el tramo hasta acá pasa cerca de ${tramo.zonas.map(z=>z.nombre).join(', ')}</div>`:''}
         ${c.ref?`<div class="ref">${c.ref}</div>`:''}
         <div class="acc">
-          ${venta?`<span class="badge ok">VENDIDO ${peso(venta.total)} · ${venta.medio}</span>`:''}
+          ${venta?`<span class="badge ok">VENDIDO ${peso(venta.total)} · ${venta.medioPago||venta.medio||''}</span>
+            <button class="btn chico" onclick="verRemito('${venta.id}')">Remito</button>`:''}
           ${nov?`<span class="badge no">NO COMPRÓ · ${nov.motivo.replace('_',' ')}</span>`:''}
           ${!c.punto?`<span class="badge pin">SIN PIN · se navega por dirección</span>`:''}
           ${c.punto&&c.punto.aproximado?`<span class="badge pin">PIN APROX. · se afina en esta entrega</span>`:''}
@@ -689,6 +887,7 @@ function vHoy(){
 }
 
 function bloqueRuta(ruta){
+  const tramos   = tramosMaps(ruta);
   const optima   = optimizar(ruta);
   const actualKm = largo(ruta), optimoKm = largo(optima);
   const ahorro   = actualKm - optimoKm;
@@ -734,10 +933,16 @@ function bloqueRuta(ruta){
       pesa ${PENAL_ZONA} km por tramo, más que perder una venta, a propósito.</div>`
       : E.zonas.length ? `<div class="nota">Ninguna zona marcada queda cerca del recorrido de hoy.</div>` : ''}
     <div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:12px">
+      ${tramos.length===1
+        ? `<a href="${tramos[0].url}" target="_blank" rel="noopener"><button class="btn pri">Abrir la ruta entera en Maps</button></a>`
+        : tramos.map((t,i)=>`<a href="${t.url}" target="_blank" rel="noopener"><button class="btn ${i===0?'pri':''}">Maps — tramo ${i+1} · paradas ${t.desde} a ${t.hasta}</button></a>`).join('')}
       <button class="btn" onclick="abrirMapa()">Ver en el mapa</button>
       <button class="btn" onclick="compararGoogle()">Comparar con Google</button>
       <button class="btn" onclick="ir('clientes')">${E.zonas.length?'Editar zonas a evitar':'Marcar una zona a evitar'}</button>
     </div>
+    ${tramos.length?`<div style="font-size:11.5px;color:var(--mudo);margin-top:9px;line-height:1.55">
+      Maps recibe las paradas pendientes <b style="color:var(--tenue)">en el orden que tengas aplicado acá</b> —
+      si reordenaste, va reordenada. ${tramos.length>1?'El link acepta 9 paradas intermedias, por eso va en '+tramos.length+' tramos que empalman. ':''}El último tramo vuelve al depósito. Waze no tiene link multiparada: parada por parada sigue su botón.</div>`:''}
     <div style="font-size:11.5px;color:var(--mudo);margin-top:12px;line-height:1.55">
       Cálculo local: distancia en línea recta × ${FACTOR_CALLE} de factor de calle, ${VELOCIDAD} km/h, ${MIN_PARADA} min por parada.
       Sin API, sin key, sin costo por request — y anda sin señal.
@@ -833,7 +1038,12 @@ function vVender(){
       <div class="campo" style="flex:1;min-width:150px"><label>Producto</label>
         <select id="sel-prod">${enCam.map(p=>`<option value="${p.id}">${p.nombre} — ${peso(p.precios[lista])} (hay ${stock(p.id,CAM)})</option>`).join('')}</select></div>
       <div class="campo" style="width:88px"><label>Cant.</label><input class="num" type="number" id="sel-cant" value="6" min="1" style="width:100%"></div>
-      <div class="campo"><button class="btn" onclick="agregarRenglon()">Agregar</button></div>
+      <div class="campo"><label>&nbsp;</label><div style="display:flex;gap:5px">
+        <button class="btn chico" onclick="sumaCant(1)">+1</button>
+        <button class="btn chico" onclick="sumaCant(6)">+6</button>
+        <button class="btn chico" onclick="sumaCant('bulto')">+bulto</button>
+      </div></div>
+      <div class="campo"><button class="btn pri" onclick="agregarRenglon()">Agregar</button></div>
       <div class="campo"><button class="btn" onclick="escanearCodigo(seleccionarProductoEscaneado)" title="Escanear y agregar directo">📷</button></div>
     </div>`:''}
 
@@ -1225,7 +1435,172 @@ function vProductos(){
     <thead><tr><th>Producto</th><th class="num">Costo repos.</th><th class="num">Mayorista</th><th class="num">Minorista</th><th class="num">Margen</th><th class="num">Depósito</th></tr></thead>
     <tbody>${filas}</tbody></table></div></div>
 
+  ${bloquePromos()}
+
   ${bloqueAgregarProducto()}`;
+}
+
+/* Las promos con la cuenta entera — sólo para quien ve costos, porque se
+   arman con precios de compra. El gancho pelado para que el repartidor lo
+   cante en el mostrador llega cuando la API sirva promos ya armadas, sin
+   costos; hoy viven de este lado de la pared (VER_COSTOS). */
+function bloquePromos(){
+  const proms = promosDelDia();
+  if(!proms.length) return '';
+  return `<div class="card glass" style="margin-top:14px">
+    <div class="eyebrow" style="color:var(--amarillo)">Promos que se arman solas</div>
+    <p style="font-size:12.5px;color:var(--tenue);margin:0 0 12px;line-height:1.55">
+      Salen de los datos, no del entusiasmo: el precio épico de compra, la pareja que más
+      sale junta en las ventas reales, el margen que aguanta descuento y el stock que vence.</p>
+    ${proms.map((pr,i)=>`<div class="promo glass">
+      <div class="gancho">${pr.gancho}</div>
+      <div class="cuenta">${pr.cuenta}</div>
+      <div class="acc">
+        <button class="btn chico" onclick="copiarPromo(${i})">Copiar para WhatsApp</button>
+        <span class="badge ${pr.margen>=18?'ok':'no'}">margen ${pr.margen.toFixed(0)}%</span>
+      </div>
+    </div>`).join('')}
+    <div class="nota">Ninguna promo se manda sola. La app arma la cuenta y el texto; <b>apretar el botón de enviar es tuyo</b>.</div>
+  </div>`;
+}
+
+function vCompras(){
+  if(!esDeposito()) return `<h2>Compras</h2>
+    <div class="card glass vacio">Los proveedores y los precios de compra los maneja el depósito.</div>`;
+
+  const conCuadro = PRODUCTOS.map(p=>({p, q:cuadroDe(p.id)}));
+  const epicos = conCuadro.filter(x=>x.q.epico).length;
+  const ahorro = ahorroSemanal();
+
+  const filas = conCuadro.map(({p,q})=>{
+    if(!q.mejor) return `<tr>
+      <td><div style="font-weight:540">${p.nombre}</div></td>
+      <td class="num" style="color:var(--tenue)">${peso(p.costo)}</td>
+      <td colspan="3" style="color:${q.vieja?'var(--coral)':'var(--mudo)'};font-size:12px">${q.vieja
+        ? 'El último precio anotado tiene más de '+VENTANA_PRECIO+' días — pedí precio de nuevo, ese número ya no corre.'
+        : 'Sin precios anotados todavía.'}</td>
+    </tr>`;
+    const pv = provee(q.mejor.proveedor);
+    const dif = p.costo - q.mejor.precio;
+    return `<tr>
+      <td><div style="font-weight:540">${p.nombre}</div>
+          ${q.segundo?`<div class="mono" style="font-size:10.5px;color:var(--mudo)">2º: ${(provee(q.segundo.proveedor)||{}).nombre||q.segundo.proveedor} ${peso(q.segundo.precio)}</div>`:''}</td>
+      <td class="num" style="color:var(--tenue)">${peso(p.costo)}</td>
+      <td class="num" style="color:var(--verde);font-weight:600">${peso(q.mejor.precio)}
+          <div style="font-size:10px;color:var(--mudo);font-weight:400">${pv?pv.nombre:q.mejor.proveedor} · hace ${diasDesde(q.mejor.fecha)} d</div></td>
+      <td class="num"><span class="dif ${dif>0?'cero':''}" style="${dif<0?'color:var(--mudo)':''}">${dif>0?'−'+peso(dif):dif<0?'+'+peso(-dif):'='}</span></td>
+      <td class="num">${q.epico?'<span class="badge epico">ÉPICO</span>':''}</td>
+    </tr>`;
+  }).join('');
+
+  const provs = E.proveedores.map(pv=>{
+    const suyas = E.compras.filter(x=>x.proveedor===pv.id);
+    const ult = suyas.length ? Math.min(...suyas.map(x=>diasDesde(x.fecha))) : null;
+    const gana = conCuadro.filter(x=>x.q.mejor&&x.q.mejor.proveedor===pv.id).length;
+    return `<div class="prov glass">
+      <div class="nom">${pv.nombre} ${pv.zona?`<span style="font-weight:400;color:var(--mudo);font-size:12px">· ${pv.zona}</span>`:''}
+        ${gana?`<span class="badge ok">gana en ${gana}</span>`:''}</div>
+      <div class="datos">
+        ${[pv.contacto,pv.tel].filter(Boolean).join(' · ')}
+        ${pv.entrega?'<br>'+pv.entrega:''}${pv.condicion?' · <b>'+pv.condicion+'</b>':''}
+        ${pv.notas?'<br>✎ '+pv.notas:''}
+        ${ult!==null?'<br><span class="mono" style="font-size:11px;color:var(--mudo)">última compra hace '+ult+' d · '+suyas.length+' precios anotados</span>':''}
+      </div>
+      ${pv.tel?`<div style="display:flex;gap:7px;margin-top:10px">
+        <a class="wa-btn" href="${waTel(pv.tel)}" target="_blank" rel="noopener"><button class="btn chico">WhatsApp</button></a>
+      </div>`:''}
+    </div>`;
+  }).join('');
+
+  return `
+  <h2>Compras y proveedores</h2>
+  <p class="lead">Cada compra que anotás acá suma. Con tres números por producto la app te dice
+  quién te lo deja más barato este mes — y te marca <b>ÉPICO</b> cuando el precio es para no dejarlo pasar.</p>
+
+  ${E.avisoCompra?`<div class="nota" style="border-color:var(--amarillo)">${E.avisoCompra}</div>`:''}
+
+  <div class="metricas">
+    <div class="metrica glass"><div class="n">${E.proveedores.length}</div><div class="r">Proveedores</div></div>
+    <div class="metrica glass"><div class="n">${E.compras.length}</div><div class="r">Precios anotados</div></div>
+    <div class="metrica glass"><div class="n ${epicos?'amarillo':''}">${epicos}</div><div class="r">Precios épicos hoy</div></div>
+    <div class="metrica glass"><div class="n verde">${peso(ahorro)}</div><div class="r">Ahorro posible por semana</div></div>
+  </div>
+
+  <div class="card glass">
+    <div class="eyebrow">El cuadro de precios</div>
+    <div class="tabla-scroll"><table>
+      <thead><tr><th>Producto</th><th class="num">Pagás</th><th class="num">El más barato hoy</th><th class="num">Dif.</th><th class="num"></th></tr></thead>
+      <tbody>${filas||'<tr><td colspan="5" class="vacio">Sin productos.</td></tr>'}</tbody></table></div>
+    <div class="nota">El cuadro compara sólo precios de los últimos ${VENTANA_PRECIO} días.
+    <b>Con inflación, un precio de hace dos meses no es un precio: es un recuerdo.</b>
+    El «ahorro posible» multiplica la diferencia por lo que rota cada producto por semana, medido sobre las ventas reales.</div>
+  </div>
+
+  <div class="card glass">
+    <div class="eyebrow">Anotar una compra</div>
+    <p style="font-size:12.5px;color:var(--tenue);margin:0 0 12px">Compraste o te pasaron precio: anotalo acá.
+    La mercadería entra al depósito por asiento y el costo de reposición se actualiza solo.</p>
+    ${E.proveedores.length?`
+    <div class="fila">
+      <div class="campo" style="flex:1;min-width:150px"><label>Proveedor</label>
+        <select id="co-prov">${E.proveedores.map(pv=>`<option value="${pv.id}">${pv.nombre}</option>`).join('')}</select></div>
+      <div class="campo" style="flex:1;min-width:150px"><label>Producto</label>
+        <select id="co-prod">${PRODUCTOS.map(p=>`<option value="${p.id}">${p.nombre}</option>`).join('')}</select></div>
+    </div>
+    <div class="fila">
+      <div class="campo" style="width:110px"><label>Unidades</label><input class="num" type="number" id="co-cant" value="0" min="0" style="width:100%"></div>
+      <div class="campo" style="width:130px"><label>Precio unidad</label><input class="num" type="number" id="co-precio" placeholder="$" style="width:100%"></div>
+      <div class="campo"><button class="btn pri" onclick="registrarCompra()">Anotar</button></div>
+    </div>
+    <div class="nota">Con unidades en cero también sirve: queda como <b>precio pasado</b>, sin mover stock.
+    Así el cuadro aprende aunque no compres.</div>`
+    :`<div class="vacio" style="text-align:left;padding:6px 0 12px">Primero sumá un proveedor, acá abajo.</div>`}
+  </div>
+
+  ${provs?`<div class="eyebrow" style="margin:18px 0 8px">Los proveedores</div>${provs}`:''}
+
+  <div class="card glass">
+    <div class="eyebrow">Sumar un proveedor</div>
+    <div class="fila">
+      <div class="campo" style="flex:1;min-width:160px"><label>Nombre</label><input id="np-nombre" placeholder="Como le decís vos"></div>
+      <div class="campo" style="width:130px"><label>Contacto</label><input id="np-contacto" placeholder="Nombre"></div>
+      <div class="campo" style="width:150px"><label>Teléfono</label><input id="np-tel" placeholder="11 ...."></div>
+      <div class="campo"><button class="btn" onclick="sumarProveedor()">Sumar</button></div>
+    </div>
+  </div>`;
+}
+
+/* Anotar una compra: la crea el servidor (asiento, costo de reposición y
+   auditoría del lado que corresponde) y acá sólo se refresca el estado. */
+async function registrarCompra(){
+  const pid=$('#co-prod').value, pvId=$('#co-prov').value;
+  const cantidad=Math.max(0,+$('#co-cant').value||0), precio=+$('#co-precio').value;
+  if(!isFinite(precio)||precio<=0){ E.avisoCompra='Falta el precio por unidad.'; render(); return; }
+  const antes=cuadroDe(pid);
+  try{
+    const compra = await api('/api/compras',{method:'POST',body:JSON.stringify({proveedor:pvId,producto:pid,precio,cantidad})});
+    E.compras.unshift(compra);
+    if(cantidad>0) E.asientos = await api('/api/asientos');
+    PRODUCTOS = await api('/api/productos');
+    const ahora=cuadroDe(pid), p=prod(pid);
+    E.avisoCompra = (ahora.epico && ahora.mejor && ahora.mejor.precio===precio)
+      ? '🔥 <b>Precio épico anotado:</b> '+p.nombre+' a '+peso(precio)
+        +(antes.mejor&&antes.mejor.precio>precio?' — le gana por '+peso(antes.mejor.precio-precio)+' por unidad al mejor que tenías.':'.')
+        +' Mirá en <b>Precios</b>: seguro ya hay una promo armada con esto.'
+      : 'Anotado. '+(cantidad>0?cantidad+' unidades entraron al depósito y el':'El')+' costo de reposición de '+p.nombre+' quedó en '+peso(precio)+'.';
+  }catch(e){ E.avisoCompra = e.message; }
+  render();
+}
+async function sumarProveedor(){
+  const nombre=($('#np-nombre').value||'').trim();
+  if(!nombre){ E.avisoCompra='Al proveedor nuevo le falta el nombre.'; render(); return; }
+  try{
+    const pv = await api('/api/proveedores',{method:'POST',body:JSON.stringify({
+      nombre, contacto:($('#np-contacto').value||'').trim(), tel:($('#np-tel').value||'').trim()})});
+    E.proveedores.push(pv);
+    E.avisoCompra='Sumado: '+pv.nombre+'. Anotale la primera compra y ya entra al cuadro.';
+  }catch(e){ E.avisoCompra = e.message; }
+  render();
 }
 
 function vUsuarios(){
@@ -1402,6 +1777,18 @@ async function cargarLibro(){
   E.ventas = ventas;
   E.noVentas = noVentas;
   E.encargues = encargues;
+  /* compras y proveedores viven del lado de VER_COSTOS: al repartidor la
+     API se los niega, así que ni se piden. Si el Worker desplegado todavía
+     no tiene estas rutas, se avisa en Compras sin romper el resto. */
+  if(esDeposito()){
+    try{
+      const [proveedores, compras] = await Promise.all([api('/api/proveedores'), api('/api/compras')]);
+      E.proveedores = proveedores; E.compras = compras;
+    }catch(e){
+      E.proveedores = []; E.compras = [];
+      E.avisoCompra = 'La API todavía no contesta compras/proveedores — probablemente falte actualizar el Worker (wrangler deploy) y aplicar el esquema nuevo. Detalle: '+e.message;
+    }
+  }
 }
 
 async function mostrarApp(){
@@ -2072,6 +2459,69 @@ function puntoSimulado(c){
   const base = {'Bernal':[-34.7075,-58.2830],'Quilmes O.':[-34.7415,-58.2970],'Quilmes C.':[-34.7210,-58.2600],'Wilde':[-34.6990,-58.3175]}[c.zona]||[-34.72,-58.28];
   return {lat:+(base[0]+(c.orden*0.0013)).toFixed(4), lng:+(base[1]-(c.orden*0.0011)).toFixed(4)};
 }
+/* ============================================================
+   remito · el comprobante de la entrega
+   Interno, nada fiscal: no factura, no habla con ARCA. Sale por
+   WhatsApp como texto o por Cmd+P como PDF. Nada se manda solo.
+   ============================================================ */
+function remitoTexto(v){
+  const c = cli(v.cliente);
+  const f = v.fecha ? new Date(v.fecha) : new Date();
+  const medio = {efectivo:'efectivo',transferencia:'transferencia',qr:'QR / Mercado Pago'}[v.medioPago||v.medio]||'';
+  return '🧾 *depo zeta — Remito '+(v.remito||v.id)+'*\n'
+    + f.toLocaleDateString('es-AR',{weekday:'long',day:'numeric',month:'numeric'})
+    + ' · ' + f.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}) + '\n'
+    + 'Para: ' + (c?c.nombre:v.cliente) + '\n\n'
+    + (v.renglones||[]).map(r=>'• '+r.cantidad+' × '+((prod(r.producto)||{}).nombre||r.producto)+' — '+peso(r.precio)+' c/u = '+peso(r.cantidad*r.precio)).join('\n')
+    + '\n\n*Total: '+peso(v.total)+'* — pagado con '+medio
+    + (v.repartidor?'\nEntregó: '+v.repartidor:'')
+    + '\n_Remito interno — no válido como factura._';
+}
+function verRemito(id){
+  const v = E.ventas.find(x=>x.id===id); if(!v) return;
+  const c = cli(v.cliente);
+  const f = v.fecha ? new Date(v.fecha) : new Date();
+  const medio = {efectivo:'Efectivo',transferencia:'Transferencia',qr:'QR / Mercado Pago'}[v.medioPago||v.medio]||'';
+  panelMsg(`
+    <div id="remito-hoja">
+      <div class="fila" style="justify-content:space-between;align-items:baseline">
+        <div><b style="font-size:16px">depo zeta</b>
+          <span class="mono" style="font-size:11px;color:var(--mudo)"> · remito interno</span></div>
+        <div class="mono" style="font-size:12px">${v.remito||v.id}</div>
+      </div>
+      <div style="font-size:12.5px;color:var(--tenue);margin:8px 0 12px;line-height:1.55">
+        ${f.toLocaleDateString('es-AR',{weekday:'long',day:'numeric',month:'long'})} ·
+        ${f.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})}<br>
+        <b style="color:var(--texto)">${c?c.nombre:v.cliente}</b>${c?' — '+c.dir:''}
+      </div>
+      <table class="compacta">
+        <thead><tr><th>Producto</th><th class="num">Cant.</th><th class="num">Unitario</th><th class="num">Subtotal</th></tr></thead>
+        <tbody>${(v.renglones||[]).map(r=>`<tr>
+          <td>${(prod(r.producto)||{}).nombre||r.producto}</td>
+          <td class="num">${r.cantidad}</td>
+          <td class="num">${peso(r.precio)}</td>
+          <td class="num">${peso(r.cantidad*r.precio)}</td></tr>`).join('')}
+        </tbody></table>
+      <div class="total"><span>Total · ${medio}</span><b>${peso(v.total)}</b></div>
+      <div style="font-size:11.5px;color:var(--mudo);margin-top:10px">
+        ${v.repartidor?'Entregó '+v.repartidor+' · ':''}<b style="color:var(--tenue)">Remito interno — no válido como factura.</b></div>
+    </div>
+    <div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:14px">
+      ${c&&c.tel?`<a class="wa-btn" href="${waTel(c.tel)}?text=${encodeURIComponent(remitoTexto(v))}" target="_blank" rel="noopener">
+        <button class="btn pri">Mandar por WhatsApp a ${c.contacto||c.nombre}</button></a>`:''}
+      <button class="btn" onclick="copiarTexto(remitoTexto(E.ventas.find(x=>x.id==='${id}')))">Copiar texto</button>
+      <button class="btn" onclick="imprimirRemito()">Imprimir / PDF</button>
+    </div>
+    <div class="nota">WhatsApp se abre con el remito ya escrito al número de la ficha — <b>apretar enviar es tuyo</b>. Imprimir saca sólo esta hoja, en claro.</div>
+  `, 'Remito de la entrega');
+}
+function imprimirRemito(){
+  document.body.classList.add('imprime-remito');
+  const fin = ()=>{ document.body.classList.remove('imprime-remito'); window.removeEventListener('afterprint',fin); };
+  window.addEventListener('afterprint',fin);
+  window.print();
+}
+
 async function confirmarVenta(){
   const v = E.ventaEnCurso, c = cli(v.cliente);
   if(!v.renglones.length) return;
@@ -2084,6 +2534,7 @@ async function confirmarVenta(){
     if(punto) CLIENTES = await api('/api/clientes');
     E.ventaEnCurso = {cliente:'',renglones:[]};
     ir('hoy');
+    verRemito(venta.id);   /* el remito sale con la entrega, no después */
   }catch(e){ E.aviso = e.message; render(); }
 }
 async function marcarNoVenta(id,motivo){
@@ -2106,8 +2557,8 @@ async function remarcar(){
    ============================================================ */
 const PERFILES = {
   repartidor:{ve:['hoy','vender','encargue','cierre','clientes']},
-  deposito:  {ve:['hoy','carga','encargue','cierre','clientes','productos','usuarios']},
-  admin:     {ve:['hoy','carga','encargue','cierre','clientes','productos','usuarios']},
+  deposito:  {ve:['hoy','carga','encargue','cierre','clientes','productos','compras','usuarios']},
+  admin:     {ve:['hoy','carga','encargue','cierre','clientes','productos','compras','usuarios']},
 };
 function ir(v){
   E.vista=v; $$('nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
@@ -2127,6 +2578,7 @@ function render(){
   $('#v-clientes').innerHTML  = vClientes();
   $('#v-productos').innerHTML = vProductos();
   $('#v-usuarios').innerHTML  = vUsuarios();
+  $('#v-compras').innerHTML   = vCompras();
   $$('section').forEach(s=>s.classList.toggle('on', s.id==='v-'+E.vista));
   $('#chip-fecha').textContent = HOY.toLocaleDateString('es-AR',{weekday:'long',day:'numeric',month:'long'});
   $('#chip-repartidor').textContent = REPARTIDOR + ' · ' + DISPOSITIVO;

@@ -103,6 +103,10 @@ sólo viajan si el rol tiene `VER_COSTOS` (DEPOSITO/ADMIN):
 | `POST /api/encargues/:id/vincular` | Vincula un renglón especial a un producto real `{indice, productoId}` — DEPOSITO/ADMIN |
 | `POST /api/encargues/:id/entregar` | Genera la venta real — REPARTIDOR/ADMIN. Bloquea si queda algún especial sin vincular |
 | `POST /api/encargues/:id/cancelar` | Con motivo — REPARTIDOR, DEPOSITO o ADMIN |
+| `GET /api/proveedores` | Fichas de proveedores — sólo quien tiene `VER_COSTOS` |
+| `POST /api/proveedores` | Alta de proveedor — DEPOSITO/ADMIN (`GESTIONAR_COMPRAS`) |
+| `GET /api/compras` | Historial de precios de compra, append-only — sólo `VER_COSTOS` |
+| `POST /api/compras` | Anota una compra `{proveedor, producto, precio, cantidad}` — DEPOSITO/ADMIN. Con `cantidad > 0` genera el asiento de compra; con `0` queda como precio pasado. Siempre actualiza el costo de reposición del producto |
 
 En `ventas`, `carga` y `entregar`, el repartidor que queda registrado es siempre quien está
 logueado (`sujeto.usuario`) — nunca lo que mande el body, para que nadie pueda vender "como"

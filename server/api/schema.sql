@@ -208,3 +208,32 @@ CREATE TABLE IF NOT EXISTS zonas_evitar (
   motivo     TEXT,
   hasta_hora REAL
 );
+
+-- Compras y proveedores: la otra mitad del negocio. `compras` es historial
+-- append-only como el libro — un precio anotado no se edita ni se borra;
+-- el cuadro de precios sólo mira los últimos 35 días (app/core/compras.js).
+CREATE TABLE IF NOT EXISTS proveedores (
+  id         TEXT PRIMARY KEY,
+  empresa_id TEXT NOT NULL DEFAULT 'default',
+  nombre     TEXT NOT NULL,
+  contacto   TEXT,
+  tel        TEXT,
+  zona       TEXT,
+  rubros     TEXT,   -- JSON: ["Bebidas"]
+  entrega    TEXT,
+  condicion  TEXT,
+  notas      TEXT,
+  activo     INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE TABLE IF NOT EXISTS compras (
+  id           TEXT PRIMARY KEY,
+  empresa_id   TEXT NOT NULL DEFAULT 'default',
+  fecha        TEXT NOT NULL,
+  proveedor_id TEXT NOT NULL REFERENCES proveedores(id),
+  producto_id  TEXT NOT NULL,
+  precio       REAL NOT NULL CHECK (precio > 0),
+  cantidad     REAL NOT NULL DEFAULT 0 CHECK (cantidad >= 0),  -- 0 = precio pasado, sin stock
+  autor        TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_compras_producto_fecha ON compras(producto_id, fecha);
