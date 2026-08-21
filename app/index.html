@@ -248,6 +248,31 @@ a.wa-btn button{color:#3ADB84;border-color:rgba(58,219,132,.4)}
 }
 #toast[hidden]{display:none}
 
+/* ---------- cajón lateral (menú «Más») ---------- */
+#cajon-fondo{position:fixed;inset:0;z-index:80;background:rgba(4,9,7,.55);backdrop-filter:blur(4px)}
+#cajon-fondo[hidden]{display:none}
+#cajon{
+  position:fixed;top:0;right:-290px;bottom:0;width:280px;z-index:81;
+  background:rgba(10,22,17,.92);border-left:.5px solid var(--borde);
+  backdrop-filter:blur(28px) saturate(180%);-webkit-backdrop-filter:blur(28px) saturate(180%);
+  transition:right .22s ease;display:flex;flex-direction:column;
+  padding:18px 14px calc(14px + env(safe-area-inset-bottom));
+}
+#cajon.abierto{right:0}
+#cajon .cab{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+#cajon .item{
+  display:flex;align-items:center;gap:12px;width:100%;text-align:left;
+  background:none;border:0;color:var(--texto);cursor:pointer;
+  font-family:var(--sans);font-size:15px;padding:13px 10px;border-radius:12px;min-height:48px
+}
+#cajon .item .ico{font-size:19px;width:26px;text-align:center}
+#cajon .item:hover{background:rgba(255,255,255,.07)}
+#cajon .item.on{background:var(--verde-tenue);color:var(--verde)}
+#cajon .sep{border-top:.5px solid var(--borde);margin:10px 0}
+#cajon .pie-cajon{margin-top:auto;font-size:11px;color:var(--mudo);padding:10px 10px 0;line-height:1.5}
+nav button.mas.on{color:var(--verde);background:var(--verde-tenue)}
+@media print{ #cajon,#cajon-fondo{display:none} }
+
 /* ---------- impresión ---------- */
 @media print{
   /* la trampa de la casa: los colores escritos a mano desaparecen sobre fondo blanco.
@@ -285,6 +310,9 @@ a.wa-btn button{color:#3ADB84;border-color:rgba(58,219,132,.4)}
      los signos vitales de este producto. Para sacarla, basta con borrar esta
      línea y assets/flujo.js — la app no depende de ella. -->
 <script type="module" src="assets/flujo.js"></script>
+<!-- Calculadora lateral, autocontenida — portada de Caja Zeta con la paleta
+     de la casa. No toca datos ni sesión; se saca borrando el archivo. -->
+<script src="assets/calculadora.js"></script>
 </head>
 <body>
 
@@ -354,6 +382,20 @@ a.wa-btn button{color:#3ADB84;border-color:rgba(58,219,132,.4)}
 
 <div id="toast" class="glass" hidden></div>
 
+<div id="cajon-fondo" hidden onclick="cerrarCajon()"></div>
+<div id="cajon" aria-label="Menú">
+  <div class="cab">
+    <span class="eyebrow" style="margin:0">Menú</span>
+    <button class="btn chico" onclick="cerrarCajon()">Cerrar</button>
+  </div>
+  <div id="cajon-items"></div>
+  <div class="sep"></div>
+  <button class="item" onclick="cerrarCajon(); window.CALC && CALC.abrir()">
+    <span class="ico">🧮</span>Calculadora</button>
+  <div class="pie-cajon">La calculadora no toca los datos: es para sumar un arqueo
+  o sacar un vuelto sin salir de la app.</div>
+</div>
+
 <nav><div class="tabs">
   <button data-v="hoy" data-perfil="ambos" class="on"><span class="ico">📍</span>Hoy</button>
   <button data-v="carga" data-perfil="deposito"><span class="ico">📦</span>Carga</button>
@@ -364,6 +406,7 @@ a.wa-btn button{color:#3ADB84;border-color:rgba(58,219,132,.4)}
   <button data-v="productos" data-perfil="deposito"><span class="ico">🏷️</span>Precios</button>
   <button data-v="compras" data-perfil="deposito"><span class="ico">🚚</span>Compras</button>
   <button data-v="usuarios" data-perfil="deposito"><span class="ico">🔐</span>Usuarios</button>
+  <button class="mas" id="nav-mas" onclick="abrirCajon()"><span class="ico">☰</span>Más</button>
 </div></nav>
 
 <script>
@@ -2560,6 +2603,28 @@ const PERFILES = {
   deposito:  {ve:['hoy','carga','encargue','cierre','clientes','productos','compras','usuarios']},
   admin:     {ve:['hoy','carga','encargue','cierre','clientes','productos','compras','usuarios']},
 };
+/* La barra de abajo lleva sólo lo que se toca mil veces por día — con
+   guantes y sol de frente, cuatro botones grandes valen más que ocho
+   chicos. El resto vive en el cajón «Más», junto con la calculadora. */
+const BARRA = {
+  repartidor:['hoy','vender','cierre','clientes'],
+  deposito:  ['hoy','carga','cierre','clientes'],
+  admin:     ['hoy','carga','cierre','clientes'],
+};
+const NOMBRE_VISTA = {
+  hoy:['📍','Hoy'], carga:['📦','Carga'], vender:['🧾','Vender'], encargue:['📝','Encargue'],
+  cierre:['⚖️','Cierre'], clientes:['👥','Clientes'], productos:['🏷️','Precios'],
+  compras:['🚚','Compras'], usuarios:['🔐','Usuarios'],
+};
+function abrirCajon(){
+  $('#cajon').classList.add('abierto');
+  $('#cajon-fondo').hidden = false;
+}
+function cerrarCajon(){
+  $('#cajon').classList.remove('abierto');
+  $('#cajon-fondo').hidden = true;
+}
+function irDesdeCajon(v){ cerrarCajon(); ir(v); }
 function ir(v){
   E.vista=v; $$('nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
   if(v==='usuarios') cargarUsuarios();
@@ -2568,8 +2633,17 @@ function ir(v){
 function render(){
   if(!E.sesion) return;   // la pantalla de login se ocupa de sí misma
   const ve = PERFILES[E.perfil].ve;
-  $$('nav button').forEach(b=>b.classList.toggle('oculta', !ve.includes(b.dataset.v)));
+  const barra = BARRA[E.perfil] || ve;
+  $$('nav button[data-v]').forEach(b=>b.classList.toggle('oculta', !barra.includes(b.dataset.v)));
   if(!ve.includes(E.vista)) E.vista='hoy';
+  /* el cajón lista todas las vistas del perfil; las de la barra también,
+     así el menú es siempre el mapa completo y no un «resto» misterioso */
+  $('#cajon-items').innerHTML = ve.map(v=>{
+    const [ico,nombre] = NOMBRE_VISTA[v] || ['·',v];
+    return `<button class="item ${E.vista===v?'on':''}" onclick="irDesdeCajon('${v}')">
+      <span class="ico">${ico}</span>${nombre}</button>`;
+  }).join('');
+  $('#nav-mas').classList.toggle('on', !barra.includes(E.vista));
   $('#v-hoy').innerHTML       = vHoy();
   $('#v-carga').innerHTML     = vCarga();
   $('#v-vender').innerHTML    = vVender();
