@@ -3,6 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#08120E">
+<link rel="icon" type="image/svg+xml" href="icono.svg">
+<link rel="apple-touch-icon" href="icono.svg">
 <title>depo zeta</title>
 <style>
 :root{
@@ -248,6 +252,17 @@ a.wa-btn button{color:#3ADB84;border-color:rgba(58,219,132,.4)}
 }
 #toast[hidden]{display:none}
 
+/* ---------- modo liviano: para teléfonos que no están para vidrio ----------
+   El desenfoque de fondo (backdrop-filter) y la seda WebGL son lo más caro
+   de pintar en un teléfono de calle. Este modo los apaga y deja paneles
+   sólidos: misma app, misma paleta, la mitad del trabajo por cuadro. */
+html.liviano .glass, html.liviano nav, html.liviano #cajon, html.liviano #toast{
+  backdrop-filter:none!important;-webkit-backdrop-filter:none!important;
+}
+html.liviano .glass{background:rgba(13,26,20,.94)}
+html.liviano nav{background:rgba(8,18,14,.97)}
+html.liviano body::before{display:none}
+
 /* ---------- cajón lateral (menú «Más») ---------- */
 #cajon-fondo{position:fixed;inset:0;z-index:80;background:rgba(4,9,7,.55);backdrop-filter:blur(4px)}
 #cajon-fondo[hidden]{display:none}
@@ -392,8 +407,12 @@ nav button.mas.on{color:var(--verde);background:var(--verde-tenue)}
   <div class="sep"></div>
   <button class="item" onclick="cerrarCajon(); window.CALC && CALC.abrir()">
     <span class="ico">🧮</span>Calculadora</button>
-  <div class="pie-cajon">La calculadora no toca los datos: es para sumar un arqueo
-  o sacar un vuelto sin salir de la app.</div>
+  <button class="item" id="cajon-liviano" onclick="alternarLiviano()">
+    <span class="ico">⚡</span><span>Modo liviano</span></button>
+  <div class="sep"></div>
+  <button class="item" style="color:var(--coral)" onclick="cerrarCajon(); salir()">
+    <span class="ico">🚪</span>Cerrar sesión</button>
+  <div class="pie-cajon" id="cajon-quien"></div>
 </div>
 
 <nav><div class="tabs">
@@ -447,7 +466,7 @@ const DISPOSITIVO = 'CEL-01';
 let CAM = '';   // 'camioneta:' + REPARTIDOR — se completa junto con REPARTIDOR
 
 const E = {
-  asientos:[], ventas:[], noVentas:[],
+  asientos:[], saldos:{}, ventas:[], noVentas:[], enviando:false,
   cargaConfirmada:false,
   contado:{},                       /* lo que el repartidor cuenta al volver */
   caja:{efectivo:'',transferencia:'',qr:''},
@@ -542,14 +561,48 @@ const esDeposito = () => E.perfil==='deposito' || E.perfil==='admin';
    producto con stock — ver cargarLibro() y las funciones que llaman a la
    API más abajo. stock() sigue siendo local: calcula sobre E.asientos, que
    ahora viene poblado de la API en vez de generado acá. */
+/* El stock ya no se calcula acá recorriendo el libro entero: lo suma la
+   base (/api/saldos) y el teléfono sólo lo mira. E.asientos trae únicamente
+   los de HOY — que es lo que las vistas de jornada necesitan listar. Si el
+   Worker desplegado todavía no tiene /api/saldos, refrescarLibro() cae al
+   libro completo y suma acá una sola vez, no en cada consulta. */
 function stock(id, ubi){
-  let s=0;
-  for(const a of E.asientos){
-    if(a.producto!==id) continue;
-    if(a.destino===ubi) s+=a.cantidad;
-    if(a.origen ===ubi) s-=a.cantidad;
+  return E.saldos[id+'|'+ubi] || 0;
+}
+const indexarSaldos = lista => {
+  const m={}; lista.forEach(x=>m[x.producto+'|'+x.ubicacion]=x.saldo); return m;
+};
+const saldosDesdeAsientos = asientos => {
+  const m={};
+  for(const a of asientos){
+    if(a.destino) m[a.producto+'|'+a.destino]=(m[a.producto+'|'+a.destino]||0)+a.cantidad;
+    if(a.origen)  m[a.producto+'|'+a.origen] =(m[a.producto+'|'+a.origen] ||0)-a.cantidad;
   }
-  return s;
+  return m;
+};
+/* Candado de envío: mientras una acción viaja a la API, las demás esperan.
+   Un doble-tap en «Confirmar entrega» eran dos ventas iguales en el libro
+   — y en la calle se toca dos veces siempre. */
+async function conCandado(fn){
+  if(E.enviando) return;
+  E.enviando = true; render();
+  try{ await fn(); }
+  finally{ E.enviando = false; render(); }
+}
+async function refrescarLibro(){
+  const hoy = new Date(); hoy.setHours(0,0,0,0);
+  try{
+    const [saldos, asientos] = await Promise.all([
+      api('/api/saldos'),
+      api('/api/asientos?desde='+encodeURIComponent(hoy.toISOString())),
+    ]);
+    E.saldos = indexarSaldos(saldos);
+    E.asientos = asientos;
+  }catch(e){
+    const asientos = await api('/api/asientos');
+    E.asientos = asientos;
+    E.saldos = saldosDesdeAsientos(asientos);
+  }
 }
 /* ---------------- compras · espejo de app/core/compras.js ----------------
    El cuadro compara sólo precios de los últimos 35 días: con inflación,
@@ -929,9 +982,19 @@ function vHoy(){
   </div>`:''}`;
 }
 
+/* El 2-opt es barato una vez, no cuarenta veces por jornada: se cachea por
+   firma de la ruta (paradas + orden aplicado + zonas). Cambia la firma —
+   una zona nueva, un reorden— y se recalcula. */
+let _optCache = {firma:'', optima:null};
+function optimizarCacheado(ruta){
+  const firma = ruta.map(c=>c.id).join(',')+'|'+E.ordenOptimo.join(',')+'|'
+    +E.zonas.map(z=>z.id+':'+z.radio+':'+z.hastaHora).join(',');
+  if(_optCache.firma!==firma){ _optCache = {firma, optima: optimizar(ruta)}; }
+  return _optCache.optima;
+}
 function bloqueRuta(ruta){
   const tramos   = tramosMaps(ruta);
-  const optima   = optimizar(ruta);
+  const optima   = optimizarCacheado(ruta);
   const actualKm = largo(ruta), optimoKm = largo(optima);
   const ahorro   = actualKm - optimoKm;
   const ag       = agenda(ruta), agOpt = agenda(optima);
@@ -1104,7 +1167,7 @@ function vVender(){
       <div class="fila" style="margin-top:13px">
         <div class="campo" style="flex:1;min-width:150px"><label>Medio de pago</label>
           <select id="sel-medio"><option value="efectivo">Efectivo</option><option value="transferencia">Transferencia</option><option value="qr">QR / Mercado Pago</option></select></div>
-        <div class="campo"><button class="btn pri" onclick="confirmarVenta()">Confirmar entrega</button></div>
+        <div class="campo"><button class="btn pri" onclick="confirmarVenta()" ${E.enviando?'disabled':''}>${E.enviando?'Enviando…':'Confirmar entrega'}</button></div>
       </div>
       <div class="nota">Al confirmar se capturan las coordenadas de la entrega. <b>Desde la segunda visita el pin es exacto</b>, sin geocodificar direcciones — que se paga por request y falla justo en las difíciles.</div>
       `: c?'<div class="vacio">Sin renglones todavía.</div>':''}
@@ -1593,7 +1656,7 @@ function vCompras(){
     <div class="fila">
       <div class="campo" style="width:110px"><label>Unidades</label><input class="num" type="number" id="co-cant" value="0" min="0" style="width:100%"></div>
       <div class="campo" style="width:130px"><label>Precio unidad</label><input class="num" type="number" id="co-precio" placeholder="$" style="width:100%"></div>
-      <div class="campo"><button class="btn pri" onclick="registrarCompra()">Anotar</button></div>
+      <div class="campo"><button class="btn pri" onclick="registrarCompra()" ${E.enviando?'disabled':''}>${E.enviando?'Enviando…':'Anotar'}</button></div>
     </div>
     <div class="nota">Con unidades en cero también sirve: queda como <b>precio pasado</b>, sin mover stock.
     Así el cuadro aprende aunque no compres.</div>`
@@ -1615,7 +1678,8 @@ function vCompras(){
 
 /* Anotar una compra: la crea el servidor (asiento, costo de reposición y
    auditoría del lado que corresponde) y acá sólo se refresca el estado. */
-async function registrarCompra(){
+const registrarCompra = () => conCandado(_registrarCompra);
+async function _registrarCompra(){
   const pid=$('#co-prod').value, pvId=$('#co-prov').value;
   const cantidad=Math.max(0,+$('#co-cant').value||0), precio=+$('#co-precio').value;
   if(!isFinite(precio)||precio<=0){ E.avisoCompra='Falta el precio por unidad.'; render(); return; }
@@ -1623,7 +1687,7 @@ async function registrarCompra(){
   try{
     const compra = await api('/api/compras',{method:'POST',body:JSON.stringify({proveedor:pvId,producto:pid,precio,cantidad})});
     E.compras.unshift(compra);
-    if(cantidad>0) E.asientos = await api('/api/asientos');
+    if(cantidad>0) await refrescarLibro();
     PRODUCTOS = await api('/api/productos');
     const ahora=cuadroDe(pid), p=prod(pid);
     E.avisoCompra = (ahora.epico && ahora.mejor && ahora.mejor.precio===precio)
@@ -1809,14 +1873,14 @@ function mapaPerfil(rol){ return {ADMIN:'admin', DEPOSITO:'deposito', REPARTIDOR
    asientos, ventas, no-ventas y encargues — de server/api/. Reemplaza los
    datos de ejemplo que tenía F0 hardcodeados en el archivo. */
 async function cargarLibro(){
-  const [productos, clientes, zonas, asientos, ventas, noVentas, encargues] = await Promise.all([
-    api('/api/productos'), api('/api/clientes'), api('/api/zonas'), api('/api/asientos'),
+  const [productos, clientes, zonas, ventas, noVentas, encargues] = await Promise.all([
+    api('/api/productos'), api('/api/clientes'), api('/api/zonas'),
     api('/api/ventas'), api('/api/no-ventas'), api('/api/encargues'),
+    refrescarLibro(),   /* saldos ya sumados + asientos de hoy */
   ]);
   PRODUCTOS = productos;
   CLIENTES = clientes;
   E.zonas = zonas;
-  E.asientos = asientos;
   E.ventas = ventas;
   E.noVentas = noVentas;
   E.encargues = encargues;
@@ -1839,6 +1903,10 @@ async function mostrarApp(){
   CAM = 'camioneta:' + REPARTIDOR;
   $('#pantalla-login').hidden = true;
   $('#app-wrap').hidden = false;
+  aplicarLiviano();
+  const q = $('#cajon-quien');
+  if(q) q.textContent = 'Sesión: '+E.sesion.perfil.nombre+' ('+E.sesion.perfil.rol.toLowerCase()+'). La calculadora no toca los datos.';
+  $('#v-'+(E.vista||'hoy')).innerHTML = '<div class="card glass vacio">Trayendo el libro del servidor…</div>';
   try{ await cargarLibro(); }
   catch(e){ E.aviso = 'No se pudo traer el libro del servidor: ' + e.message; }
   render();
@@ -2315,7 +2383,7 @@ async function guardarProducto(){
       stockInicial:+$('#in-prod-stock').value||0,
     })});
     PRODUCTOS.push(nuevo);
-    if(+$('#in-prod-stock').value>0) E.asientos = await api('/api/asientos');
+    if(+$('#in-prod-stock').value>0) await refrescarLibro();
     E.avisoProducto = '';
   }catch(e){ E.avisoProducto = e.message; }
   render();
@@ -2386,14 +2454,15 @@ function compararGoogle(){
 /* ============================================================
    acciones
    ============================================================ */
-async function confirmarCarga(){
+const confirmarCarga = () => conCandado(_confirmarCarga);
+async function _confirmarCarga(){
   const renglones = PRODUCTOS.map(p=>{
     const el = $('#c-'+p.id); const n = el ? +el.value : 0;
     return {producto:p.id, cantidad:n};
   }).filter(r=>r.cantidad>0);
   try{
     if(renglones.length) await api('/api/carga', {method:'POST', body:JSON.stringify({repartidor:REPARTIDOR, renglones})});
-    E.asientos = await api('/api/asientos');
+    await refrescarLibro();
     E.cargaConfirmada = true;
     ir('hoy');
   }catch(e){ E.aviso = 'No se pudo confirmar la carga: '+e.message; render(); }
@@ -2466,7 +2535,7 @@ async function confirmarEntregaEncargue(id){
   try{
     const venta = await api('/api/encargues/'+encodeURIComponent(id)+'/entregar', {method:'POST', body:JSON.stringify({medioPago:medio, punto})});
     E.ventas.push(venta);
-    E.asientos = await api('/api/asientos');
+    await refrescarLibro();
     if(punto) CLIENTES = await api('/api/clientes');
     reemplazarEncargue({...enc, estado:'entregado', ventaId:venta.id});
     E.entregandoEncargue = '';
@@ -2565,7 +2634,8 @@ function imprimirRemito(){
   window.print();
 }
 
-async function confirmarVenta(){
+const confirmarVenta = () => conCandado(_confirmarVenta);
+async function _confirmarVenta(){
   const v = E.ventaEnCurso, c = cli(v.cliente);
   if(!v.renglones.length) return;
   const punto = puntoSimulado(c);
@@ -2573,14 +2643,15 @@ async function confirmarVenta(){
   try{
     const venta = await api('/api/ventas', {method:'POST', body:JSON.stringify({cliente:c.id, renglones:v.renglones, medioPago:medio, punto})});
     E.ventas.push(venta);
-    E.asientos = await api('/api/asientos');
+    await refrescarLibro();
     if(punto) CLIENTES = await api('/api/clientes');
     E.ventaEnCurso = {cliente:'',renglones:[]};
     ir('hoy');
     verRemito(venta.id);   /* el remito sale con la entrega, no después */
   }catch(e){ E.aviso = e.message; render(); }
 }
-async function marcarNoVenta(id,motivo){
+const marcarNoVenta = (id,motivo) => conCandado(()=>_marcarNoVenta(id,motivo));
+async function _marcarNoVenta(id,motivo){
   try{
     E.noVentas.push(await api('/api/no-ventas', {method:'POST', body:JSON.stringify({cliente:id, motivo})}));
     E.noVentaAbierta='';
@@ -2625,6 +2696,19 @@ function cerrarCajon(){
   $('#cajon-fondo').hidden = true;
 }
 function irDesdeCajon(v){ cerrarCajon(); ir(v); }
+/* modo liviano persistente por dispositivo */
+const esLiviano = () => { try{ return localStorage.getItem('dz:liviano')==='1'; }catch(e){ return false; } };
+function aplicarLiviano(){
+  document.documentElement.classList.toggle('liviano', esLiviano());
+  if(window.FLUJO){ esLiviano() ? FLUJO.off() : (localStorage.getItem('dz:flujo')!=='0' && FLUJO.on()); }
+  const b = $('#cajon-liviano');
+  if(b) b.innerHTML = '<span class="ico">⚡</span><span>Modo liviano: <b>'+(esLiviano()?'prendido':'apagado')+'</b></span>';
+}
+function alternarLiviano(){
+  try{ localStorage.setItem('dz:liviano', esLiviano()?'0':'1'); }catch(e){}
+  aplicarLiviano();
+  toast(esLiviano() ? 'Modo liviano: sin vidrio ni seda — vuela en cualquier teléfono.' : 'Modo completo: vidrio y seda de vuelta.');
+}
 function ir(v){
   E.vista=v; $$('nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
   if(v==='usuarios') cargarUsuarios();
@@ -2644,15 +2728,13 @@ function render(){
       <span class="ico">${ico}</span>${nombre}</button>`;
   }).join('');
   $('#nav-mas').classList.toggle('on', !barra.includes(E.vista));
-  $('#v-hoy').innerHTML       = vHoy();
-  $('#v-carga').innerHTML     = vCarga();
-  $('#v-vender').innerHTML    = vVender();
-  $('#v-encargue').innerHTML  = vEncargue();
-  $('#v-cierre').innerHTML    = vCierre();
-  $('#v-clientes').innerHTML  = vClientes();
-  $('#v-productos').innerHTML = vProductos();
-  $('#v-usuarios').innerHTML  = vUsuarios();
-  $('#v-compras').innerHTML   = vCompras();
+  /* Se pinta SOLO la vista activa. Pintar las nueve en cada tecla era la
+     mitad de la lentitud: vHoy corre el optimizador de ruta, vCompras arma
+     el cuadro entero — no hay razón para pagarlos mientras tipeás una
+     cantidad en otra pantalla. Al cambiar de vista, ir() vuelve acá. */
+  const VISTA_FN = {hoy:vHoy, carga:vCarga, vender:vVender, encargue:vEncargue,
+    cierre:vCierre, clientes:vClientes, productos:vProductos, usuarios:vUsuarios, compras:vCompras};
+  $('#v-'+E.vista).innerHTML = (VISTA_FN[E.vista]||vHoy)();
   $$('section').forEach(s=>s.classList.toggle('on', s.id==='v-'+E.vista));
   $('#chip-fecha').textContent = HOY.toLocaleDateString('es-AR',{weekday:'long',day:'numeric',month:'long'});
   $('#chip-repartidor').textContent = REPARTIDOR + ' · ' + DISPOSITIVO;
@@ -2663,7 +2745,8 @@ function render(){
   $('#pie-api-url').textContent = getApiUrl() || 'la API';
   renderWaDrawer();
 }
-$$('nav button').forEach(b=>b.onclick=()=>ir(b.dataset.v));
+$$('nav button[data-v]').forEach(b=>b.onclick=()=>ir(b.dataset.v));
+aplicarLiviano();   /* también en la pantalla de login: la seda ya corre ahí */
 verificarSesion();
 </script>
 </body>

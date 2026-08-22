@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#08120E"/>
+  <circle cx="256" cy="256" r="190" fill="none" stroke="#2FBF71" stroke-width="14" opacity=".35"/>
+  <text x="256" y="308" font-family="-apple-system,Helvetica,Arial,sans-serif" font-size="240" font-weight="700"
+    text-anchor="middle" fill="#2FBF71">dz</text>
+  <circle cx="376" cy="150" r="26" fill="#FF7A59"/>
+</svg>

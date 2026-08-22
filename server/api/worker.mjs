@@ -398,7 +398,14 @@ export default {
 
       // -- el libro --
       if (url.pathname === '/api/asientos' && req.method === 'GET') {
-        return json(await repoLibro.listarAsientos());
+        return json(await repoLibro.listarAsientos(url.searchParams.get('desde') || undefined));
+      }
+
+      /* El stock ya sumado, por producto y ubicación. Con esto el teléfono
+         no baja ni recorre el libro histórico: pide el saldo y los asientos
+         del día. El libro completo sigue disponible en /api/asientos. */
+      if (url.pathname === '/api/saldos' && req.method === 'GET') {
+        return json(await repoLibro.saldos());
       }
 
       if (url.pathname === '/api/carga' && req.method === 'POST') {

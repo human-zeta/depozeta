@@ -112,9 +112,31 @@ export function repositorioLibroD1(db) {
   });
 
   return {
-    async listarAsientos() {
-      const { results } = await db.prepare('SELECT * FROM asientos WHERE empresa_id = ? ORDER BY fecha').bind(EMPRESA).all();
+    async listarAsientos(desde) {
+      /* `desde` (ISO) acota la respuesta: el libro crece para siempre, y el
+         teléfono sólo necesita los asientos de la jornada — el stock total
+         viaja aparte, ya sumado, por saldos() */
+      const q = desde
+        ? db.prepare('SELECT * FROM asientos WHERE empresa_id = ? AND fecha >= ? ORDER BY fecha').bind(EMPRESA, desde)
+        : db.prepare('SELECT * FROM asientos WHERE empresa_id = ? ORDER BY fecha').bind(EMPRESA);
+      const { results } = await q.all();
       return results.map(fila);
+    },
+    /* El stock lo suma la base, no el teléfono: dos GROUP BY y una resta.
+       Devuelve [{producto, ubicacion, saldo}] sólo con saldos distintos de cero. */
+    async saldos() {
+      const { results: entradas } = await db.prepare(
+        'SELECT producto_id, destino AS ubi, SUM(cantidad) AS total FROM asientos WHERE empresa_id = ? GROUP BY producto_id, destino'
+      ).bind(EMPRESA).all();
+      const { results: salidas } = await db.prepare(
+        'SELECT producto_id, origen AS ubi, SUM(cantidad) AS total FROM asientos WHERE empresa_id = ? GROUP BY producto_id, origen'
+      ).bind(EMPRESA).all();
+      const mapa = {};
+      for (const r of entradas) mapa[r.producto_id + '|' + r.ubi] = (mapa[r.producto_id + '|' + r.ubi] || 0) + r.total;
+      for (const r of salidas) mapa[r.producto_id + '|' + r.ubi] = (mapa[r.producto_id + '|' + r.ubi] || 0) - r.total;
+      return Object.entries(mapa)
+        .filter(([, saldo]) => saldo !== 0)
+        .map(([k, saldo]) => { const [producto, ubicacion] = k.split('|'); return { producto, ubicacion, saldo }; });
     },
     async asientosDeProducto(producto) {
       const { results } = await db.prepare('SELECT * FROM asientos WHERE empresa_id = ? AND producto_id = ? ORDER BY fecha')

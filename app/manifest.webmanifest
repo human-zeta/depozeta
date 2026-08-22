@@ -1,0 +1,12 @@
+{
+  "name": "depo zeta",
+  "short_name": "depo zeta",
+  "description": "El libro de la mercadería: reparto, stock por asientos, compras y cierre.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#08120E",
+  "theme_color": "#08120E",
+  "icons": [
+    { "src": "icono.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
